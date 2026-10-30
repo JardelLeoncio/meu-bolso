@@ -1,0 +1,3 @@
+# Gerado pelo esbuild: contém espaços dentro de strings das dependências.
+# Não remover esses espaços automaticamente: fazem parte do código compilado.
+cloud.js -whitespace linguist-generated=true

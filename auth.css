@@ -1,0 +1,13 @@
+[hidden]{display:none!important}
+body.locked>.app-shell,body.locked>.main-tabs,body.locked>.fab,body.locked>.modal-overlay,body.locked>.toast{display:none!important}
+.auth-screen{min-height:100dvh;display:grid;place-items:center;padding:24px}
+.auth-card{width:100%;max-width:430px;background:white;border:1px solid #e5eaf0;border-radius:24px;padding:28px;box-shadow:0 16px 50px #10243a12}
+.auth-card h1{margin:16px 0 8px}.auth-card h2{font-size:19px}.auth-card p{font-size:14px;line-height:1.6;color:#52667c}
+.auth-card label{display:block;font-size:13px;font-weight:700;margin:16px 0 6px}
+.auth-card input{width:100%;padding:13px;border:1px solid #b9c8d0;border-radius:10px;background:#fff;color:#162439}
+.auth-card .btn{margin-top:16px;width:100%}#auth-message{padding:10px;background:#f0f7f4;border-radius:9px}
+#mfa-setup{text-align:center}#mfa-qr{max-width:100%;height:auto}#mfa-secret{display:block;overflow-wrap:anywhere;background:#eef4f6;padding:12px}
+.cloud-toolbar{max-width:1006px;margin:18px auto 0;padding:16px 20px;background:#fff;border:1px solid #e5eaf0;border-radius:16px;font-size:13px}
+.cloud-toolbar>span{display:block;overflow-wrap:anywhere}.cloud-toolbar .actions{margin-top:10px}.cloud-toolbar .btn{padding:9px 12px}
+#sync-status{margin-top:6px;font-weight:700;color:#137f66}#legacy-panel{border-top:1px solid #e5eaf0;margin-top:12px;padding-top:8px;line-height:1.5}
+@media(max-width:540px){.cloud-toolbar{margin:12px 15px 0}.brandrow{flex-wrap:wrap}.auth-card{padding:22px}}

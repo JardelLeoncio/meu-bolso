@@ -8,3 +8,11 @@ LEIA-ME.txt
 .DS_Store
 Thumbs.db
 .vscode/
+node_modules/
+.env
+.env.*
+!.env.example
+work/
+test-results/
+playwright-report/
+backups/

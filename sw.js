@@ -1,5 +1,18 @@
-const CACHE='meu-bolso-pwa-v4';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(names=>Promise.all(names.filter(name=>name!==CACHE).map(name=>caches.delete(name)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(resp=>{if(resp.ok&&new URL(event.request.url).origin===self.location.origin){const cp=resp.clone();caches.open(CACHE).then(c=>c.put(event.request,cp))}return resp}))) });
+const CACHE = 'meu-bolso-pwa-v5-auth';
+const ASSETS = ['./','./index.html','./app.css','./auth.css','./cloud.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
+self.addEventListener('install', event => event.waitUntil(
+  caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+));
+self.addEventListener('activate', event => event.waitUntil(
+  caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('meu-bolso-pwa-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())
+));
+self.addEventListener('fetch', event => {
+  const request = event.request, url = new URL(request.url);
+  // Nunca interceptar Auth, banco, backups, links com código de recuperação ou outros sites.
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.search || !allowed.has(url.href)) return;
+  event.respondWith(fetch(request).then(response => {
+    if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then(cache => cache.put(request, copy))); }
+    return response;
+  }).catch(async () => (await caches.match(request)) || Response.error()));
+});
