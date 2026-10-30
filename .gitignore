@@ -1,0 +1,10 @@
+# Dados financeiros pessoais e backups: nunca enviar ao GitHub.
+historico-inicial-*.json
+meu-bolso-backup-*.json
+*.csv
+LEIA-ME.txt
+
+# Arquivos e pastas locais do sistema/editor.
+.DS_Store
+Thumbs.db
+.vscode/
