@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://ohfqsuqjhkmlooqvifvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://ohfqsuqjhkmlooqvifvf.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
   <meta name="theme-color" content="#101d30">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -22,6 +22,7 @@
     <div class="auth-card">
       <div class="logo">$</div><h1>Meu Bolso</h1><p>Suas despesas, protegidas e disponíveis nos seus aparelhos.</p>
       <p id="auth-message" role="status" aria-live="polite">Carregando acesso seguro…</p>
+      <div id="captcha-widget"></div>
       <form id="login-form" hidden>
         <label for="login-email">E-mail</label><input id="login-email" type="email" autocomplete="username" required maxlength="254">
         <label for="login-password">Senha</label><input id="login-password" type="password" autocomplete="current-password" required>
@@ -88,6 +89,7 @@
             </form>
           </details>
           <button id="cloud-logout" class="btn danger account-signout" type="button">Sair deste aparelho</button>
+          <button id="logout-all" class="btn ghost account-signout" type="button">Sair de todos os aparelhos</button>
         </div>
         <div class="settings-item">
           <h3>Sincronização</h3>

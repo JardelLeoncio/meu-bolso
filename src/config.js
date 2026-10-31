@@ -2,3 +2,6 @@
 export const SUPABASE_URL = 'https://ohfqsuqjhkmlooqvifvf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_8VybGhsbT8syP6FJ1ZExHg_v2yBVr2G';
 export const SITE_URL = 'https://jardelleoncio.github.io/meu-bolso/';
+
+// Chave pública do widget Turnstile. A chave secreta fica somente no Supabase.
+export const TURNSTILE_SITE_KEY = '';

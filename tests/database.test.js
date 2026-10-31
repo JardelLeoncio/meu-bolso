@@ -20,7 +20,7 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     await db.query('insert into bolso_private.members values ($1),($2)',[a,b]);
     async function act(role, id, aal, sql, args=[]) {
       await db.exec('reset role');
-      await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",[id||'',JSON.stringify({aal})]);
+      await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",[id||'',JSON.stringify({aal,session_id:id})]);
       await db.exec('set role '+role);
       return db.query(sql,args);
     }
@@ -46,5 +46,24 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     assert.equal((await act('authenticated',b,'aal2',save,[doc,0])).rows[0].revision,1);
     const rows=await act('authenticated',b,'aal2','select * from public.bolso_documents');
     assert.equal(rows.rows.length,1);assert.equal(rows.rows[0].user_id,b);
+    await db.exec('reset role; create table auth.sessions(id uuid primary key,user_id uuid);');
+    await db.query('insert into auth.sessions values($1,$1),($2,$2)',[a,b]);
+    const protection=await readFile(new URL('../supabase/03-protecao.sql',import.meta.url),'utf8');
+    await db.exec(protection);await db.exec(protection);
+    await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_documents'));
+    await assert.rejects(act('anon',null,null,'select * from public.bolso_read()'));
+    await assert.rejects(act('authenticated',a,'aal1','select * from public.bolso_read()'));
+    await assert.rejects(act('authenticated',c,'aal2','select * from public.bolso_read()'));
+    await assert.rejects(act('authenticated',a,'aal2','select bolso_private.save_document($1,2)',[changed]));
+    for(let i=0;i<120;i++) await act('authenticated',a,'aal2','select * from public.bolso_read()');
+    await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_read()'),e=>e.code==='PT429');
+    assert.equal((await act('authenticated',b,'aal2','select * from public.bolso_read()')).rows.length,1);
+    await db.exec("reset role; update bolso_private.request_limits set window_start=now()-interval '2 minutes'");
+    await act('authenticated',a,'aal2','select * from public.bolso_read()');
+    for(let i=0;i<30;i++) await act('authenticated',a,'aal2',save,[changed,2]);
+    await assert.rejects(act('authenticated',a,'aal2',save,[changed,2]),e=>e.code==='PT429');
+    await db.exec('reset role');await db.query('delete from auth.sessions where user_id=$1',[a]);
+    await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_read()'),e=>e.code==='42501');
+    await assert.rejects(act('authenticated',a,'aal2',save,[changed,2]),e=>e.code==='42501');
   } finally { await db.close(); }
 });

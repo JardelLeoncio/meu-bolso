@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_KEY, SITE_URL } from './config.js';
+import { SUPABASE_URL, SUPABASE_KEY, SITE_URL, TURNSTILE_SITE_KEY } from './config.js';
 import './app.js';
 
 const $ = id => document.getElementById(id);
@@ -18,6 +18,21 @@ const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { storage: localStorage, storageKey: authKey, flowType: 'pkce',
     persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
+let captchaWidget = null;
+async function captchaToken() {
+  if (!TURNSTILE_SITE_KEY) return undefined;
+  const token = window.turnstile?.getResponse(captchaWidget);
+  if (!token) throw Error('Confirme a verificação de segurança e tente novamente.');
+  return token;
+}
+function resetCaptcha() { if(captchaWidget !== null) window.turnstile?.reset(captchaWidget); }
+if (TURNSTILE_SITE_KEY) {
+  const script=document.createElement('script');
+  script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  script.onload=()=>{ captchaWidget=window.turnstile.render('#captcha-widget',{sitekey:TURNSTILE_SITE_KEY}); };
+  script.onerror=()=>message('Não foi possível carregar a verificação de segurança. Recarregue a página.');
+  document.head.append(script);
+}
 let userId = null, revision = 0, pending = null, busy = false, authBusy = false;
 let factorId = null, recovery = false, generation = 0;
 const editable = () => !!userId && !pending && !busy && navigator.onLine;
@@ -46,13 +61,14 @@ function lock(text) {
   $('mfa-code').value = ''; factorId = null; freeze(); message(text);
 }
 function readableError(error) {
+  if (error?.code === 'PT429' || error?.status === 429) return 'Muitas solicitações. Aguarde um minuto antes de sincronizar novamente.';
   if (error?.code === '40001') return 'Outro aparelho salvou uma alteração. Baixe seu backup pendente antes de carregar a versão da nuvem.';
   if (['PGRST202','PGRST205','42P01'].includes(error?.code)) return 'O banco ainda precisa ser configurado. Execute o arquivo 01-banco.sql no painel do Supabase.';
   if (error?.code === '42501') return 'Acesso bloqueado. Confira a conta autorizada e a verificação em duas etapas.';
   return 'Não foi possível conectar ou salvar. Verifique a internet e tente novamente. Suas alterações pendentes continuam nesta aba.';
 }
 async function readCloud(id) {
-  const { data, error } = await client.from('bolso_documents').select('document,revision').eq('user_id', id).maybeSingle();
+  const { data, error } = await client.rpc('bolso_read').maybeSingle();
   if (error) throw error;
   return data ? { document: app.validate(data.document), revision: Number(data.revision) } : { document: app.initial(), revision: 0 };
 }
@@ -144,14 +160,18 @@ async function refresh() {
     if (epoch !== generation) return;
     if (remote.revision !== revision) { revision = remote.revision; app.set(remote.document); }
     status('Sincronizado');
-  } catch { if (epoch === generation) status('Sem atualização da nuvem. Confira a conexão e clique em Sincronizar.'); }
+  } catch (error) { if (epoch === generation) {
+    if (error?.code === '42501') { lock('Sessão encerrada ou acesso revogado. Entre novamente.'); $('login-form').hidden=false; }
+    else status(readableError(error));
+  } }
   finally { if (epoch === generation) { busy = false; freeze(); } }
 }
-async function signOut() {
+async function signOut(scope = 'local') {
+  if (typeof scope !== 'string') scope = 'local';
   if (pending && !confirm('Há uma alteração ainda não salva na nuvem. Baixe um backup antes de sair. Sair mesmo assim?')) return;
   const oldId = userId;
   lock('Encerrando sessão…'); recovery = false;
-  const { error } = await client.auth.signOut({ scope: 'local' });
+  const { error } = await client.auth.signOut({ scope });
   if (error) { message('Não foi possível encerrar a sessão. Tente novamente.'); $('auth-logout').hidden = false; return; }
   if (oldId) sessionStorage.removeItem(draftKey(oldId));
   $('login-form').hidden = false; message('Sessão encerrada neste aparelho.');
@@ -159,12 +179,12 @@ async function signOut() {
 $('login-form').addEventListener('submit', async e => {
   e.preventDefault(); const button = e.submitter; button.disabled = true; message('Entrando…');
   try {
-    const { error } = await client.auth.signInWithPassword({ email: $('login-email').value.trim(), password: $('login-password').value });
+    const { error } = await client.auth.signInWithPassword({ email: $('login-email').value.trim(), password: $('login-password').value, options: { captchaToken: await captchaToken() } });
     $('login-password').value = '';
     if (error) { message('Não foi possível entrar. Confira e-mail e senha ou aguarde antes de tentar novamente.'); return; }
     await continueLogin();
   } catch { message('Falha de conexão. Tente novamente.'); }
-  finally { button.disabled = false; }
+  finally { resetCaptcha(); button.disabled = false; }
 });
 $('enroll-mfa').addEventListener('click', async () => {
   $('enroll-mfa').disabled = true;
@@ -200,10 +220,11 @@ $('forgot-password').addEventListener('click', async () => {
   if (!$('login-email').reportValidity()) return;
   $('forgot-password').disabled = true;
   try {
-    await client.auth.resetPasswordForEmail($('login-email').value.trim(), { redirectTo: SITE_URL });
+    const { error } = await client.auth.resetPasswordForEmail($('login-email').value.trim(), { redirectTo: SITE_URL, captchaToken: await captchaToken() });
+    if (error) throw error;
     message('Se o endereço estiver cadastrado e o envio de e-mail estiver configurado, você receberá um link. Abra-o neste mesmo navegador.');
   } catch { message('Falha de conexão. Tente novamente.'); }
-  finally { $('forgot-password').disabled = false; }
+  finally { resetCaptcha(); $('forgot-password').disabled = false; }
 });
 $('password-form').addEventListener('submit', async e => {
   e.preventDefault(); const button=e.submitter; button.disabled=true;
@@ -214,6 +235,7 @@ $('password-form').addEventListener('submit', async e => {
   } catch { message('Falha de conexão ao alterar a senha. Tente novamente.'); }
   finally { button.disabled=false; }
 });
+$('logout-all').addEventListener('click', () => { if(confirm('Encerrar o acesso em todos os aparelhos?')) void signOut('global'); });
 $('retry-access').addEventListener('click', continueLogin);
 $('sync-alert-open').addEventListener('click', () => document.querySelector('[data-page="settings"]').click());
 $('profile-form').addEventListener('submit', async e => {
