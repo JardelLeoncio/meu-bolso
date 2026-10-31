@@ -7,7 +7,13 @@ body.locked>.app-shell,body.locked>.main-tabs,body.locked>.fab,body.locked>.moda
 .auth-card input{width:100%;padding:13px;border:1px solid #b9c8d0;border-radius:10px;background:#fff;color:#162439}
 .auth-card .btn{margin-top:16px;width:100%}#auth-message{padding:10px;background:#f0f7f4;border-radius:9px}
 #mfa-setup{text-align:center}#mfa-qr{max-width:100%;height:auto}#mfa-secret{display:block;overflow-wrap:anywhere;background:#eef4f6;padding:12px}
-.cloud-toolbar{max-width:1006px;margin:18px auto 0;padding:16px 20px;background:#fff;border:1px solid #e5eaf0;border-radius:16px;font-size:13px}
-.cloud-toolbar>span{display:block;overflow-wrap:anywhere}.cloud-toolbar .actions{margin-top:10px}.cloud-toolbar .btn{padding:9px 12px}
-#sync-status{margin-top:6px;font-weight:700;color:#137f66}#legacy-panel{border-top:1px solid #e5eaf0;margin-top:12px;padding-top:8px;line-height:1.5}
-@media(max-width:540px){.cloud-toolbar{margin:12px 15px 0}.brandrow{flex-wrap:wrap}.auth-card{padding:22px}}
+
+.account-card{max-width:100%}.account-card #account-email{overflow-wrap:anywhere;color:var(--ink)}
+.account-card .field{max-width:460px}.account-feedback{margin-top:12px!important;min-height:0;color:#137f66!important}.account-feedback:empty{display:none}
+.account-security{margin:20px 0 16px;padding:14px;background:#edf8f4;border-radius:12px;font-size:13px;color:#167d65}.account-security p{margin:6px 0 0}
+.password-settings summary,#legacy-panel summary{cursor:pointer;font-size:13px;font-weight:700;padding:8px 0}.account-signout{margin-top:20px}
+#sync-status{font-weight:700;color:#137f66}#legacy-panel{border-top:1px solid #e5eaf0;margin-top:16px;padding-top:8px;line-height:1.5}
+.sync-alert{position:fixed;z-index:150;bottom:calc(155px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(520px,calc(100% - 30px));padding:12px 16px;background:#fff5df;border:1px solid #e8cf91;border-radius:14px;box-shadow:0 6px 25px #10243a18;color:#674916;font-size:12px;line-height:1.5}
+.sync-alert button{display:block;border:0;background:none;text-decoration:underline;color:inherit;font-weight:700;padding:6px 0 0}
+body.locked>.sync-alert{display:none!important}
+@media(max-width:540px){.brandrow{flex-wrap:wrap}.auth-card{padding:22px}.account-card input{font-size:16px}}

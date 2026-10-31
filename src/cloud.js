@@ -4,8 +4,18 @@ import './app.js';
 
 const $ = id => document.getElementById(id);
 const app = window.Bolso;
+// Migra uma vez a sessão da versão anterior; nunca restaura uma sessão após Sair.
+const authKey = 'meu-bolso-auth';
+if (!localStorage.getItem(authKey + '-migrated')) {
+  for (const key of [authKey, authKey + '-code-verifier']) {
+    const previous = sessionStorage.getItem(key);
+    if (previous && !localStorage.getItem(key)) localStorage.setItem(key, previous);
+  }
+  localStorage.setItem(authKey + '-migrated', '1');
+}
+for (const key of [authKey, authKey + '-code-verifier']) sessionStorage.removeItem(key);
 const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { storage: sessionStorage, storageKey: 'meu-bolso-auth', flowType: 'pkce',
+  auth: { storage: localStorage, storageKey: authKey, flowType: 'pkce',
     persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 let userId = null, revision = 0, pending = null, busy = false, authBusy = false;
@@ -13,15 +23,24 @@ let factorId = null, recovery = false, generation = 0;
 const editable = () => !!userId && !pending && !busy && navigator.onLine;
 const draftKey = id => 'meu-bolso-draft:' + id;
 const message = text => { $('auth-message').textContent = text; };
-const status = text => { $('sync-status').textContent = text; };
+const status = text => {
+  $('sync-status').textContent = text;
+  const warning = !!userId && text !== 'Sincronizado' && text !== 'Salvando na nuvem…';
+  $('sync-alert').hidden = !warning;
+  $('sync-alert-text').textContent = warning ? text : '';
+};
 function freeze() {
-  for (const el of document.querySelectorAll('.app-shell,.main-tabs,.fab,.modal-overlay')) el.inert = !editable();
+  // Conta e recuperação de conflitos continuam acessíveis durante falhas de gravação.
+  for (const el of document.querySelectorAll('.page:not(#settings),.month-box,.fab,.modal-overlay,.settings-data')) el.inert = !editable();
   $('legacy-import').disabled = !editable();
 }
 function lock(text) {
   generation++; userId = null; pending = null; revision = 0; busy = false;
   app.clear(); document.body.classList.add('locked'); $('auth-screen').hidden = false;
-  $('cloud-toolbar').hidden = true;
+  $('sync-alert').hidden = true;
+  $('account-email').textContent = ''; $('profile-name').value = '';
+  $('profile-password').value = ''; $('profile-password-confirm').value = '';
+  $('profile-message').textContent = ''; $('profile-password-message').textContent = '';
   for (const id of ['login-form','mfa-panel','password-form','retry-access','auth-logout']) $(id).hidden = true;
   $('mfa-setup').hidden = true; $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src');
   $('mfa-code').value = ''; factorId = null; freeze(); message(text);
@@ -53,7 +72,8 @@ async function openAccount(session) {
     app.set(pending.document);
   }
   $('account-email').textContent = session.user.email || 'Minha conta';
-  document.body.classList.remove('locked'); $('auth-screen').hidden = true; $('cloud-toolbar').hidden = false;
+  $('profile-name').value = session.user.user_metadata?.display_name || '';
+  document.body.classList.remove('locked'); $('auth-screen').hidden = true;
   $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src'); $('mfa-setup').hidden = true;
   $('login-password').value = ''; $('mfa-code').value = '';
   $('legacy-panel').hidden = !Object.values(app.legacy().months).some(items => items.length);
@@ -195,6 +215,31 @@ $('password-form').addEventListener('submit', async e => {
   finally { button.disabled=false; }
 });
 $('retry-access').addEventListener('click', continueLogin);
+$('sync-alert-open').addEventListener('click', () => document.querySelector('[data-page="settings"]').click());
+$('profile-form').addEventListener('submit', async e => {
+  e.preventDefault(); if (!userId) return;
+  const epoch = generation, button = e.submitter; button.disabled = true;
+  $('profile-message').textContent = 'Salvando perfil…';
+  try {
+    const { error } = await client.auth.updateUser({ data: { display_name: $('profile-name').value.trim() } });
+    if (epoch !== generation) return;
+    $('profile-message').textContent = error ? 'Não foi possível salvar o perfil. Tente novamente.' : 'Perfil atualizado.';
+  } catch { if (epoch === generation) $('profile-message').textContent = 'Confira a conexão e tente novamente.'; }
+  finally { button.disabled = false; }
+});
+$('profile-password-form').addEventListener('submit', async e => {
+  e.preventDefault(); if (!userId) return;
+  const password = $('profile-password'), confirmation = $('profile-password-confirm');
+  if (password.value !== confirmation.value) { $('profile-password-message').textContent = 'Digite a mesma senha nos dois campos.'; return; }
+  const epoch = generation, button = e.submitter; button.disabled = true;
+  $('profile-password-message').textContent = 'Alterando senha…';
+  try {
+    const { error } = await client.auth.updateUser({ password: password.value });
+    if (epoch !== generation) return;
+    $('profile-password-message').textContent = error ? 'Não foi possível alterar. Confira os requisitos da senha; se necessário, saia e entre novamente para tentar.' : 'Senha alterada.';
+  } catch { if (epoch === generation) $('profile-password-message').textContent = 'Confira a conexão e tente novamente.'; }
+  finally { password.value = ''; confirmation.value = ''; button.disabled = false; }
+});
 $('auth-logout').addEventListener('click', signOut); $('cloud-logout').addEventListener('click', signOut);
 $('sync-retry').addEventListener('click', refresh); $('cloud-backup').addEventListener('click', app.backup);
 $('legacy-backup').addEventListener('click', app.legacyBackup);
@@ -211,6 +256,11 @@ window.addEventListener('beforeunload', e => { if (pending) { e.preventDefault()
 window.addEventListener('online', () => { freeze(); void refresh(); });
 window.addEventListener('offline', () => { freeze(); status('Sem internet. Alterações bloqueadas até reconectar.'); });
 window.addEventListener('focus', () => void refresh());
+window.addEventListener('storage', e => {
+  if ((e.key === authKey && !e.newValue) || e.key === null) {
+    lock('Sua sessão terminou neste navegador. Entre novamente.'); $('login-form').hidden = false;
+  }
+});
 setInterval(() => { if (!document.hidden) void refresh(); }, 30000);
 client.auth.onAuthStateChange((event, session) => {
   // Não aguardar chamadas de Auth dentro deste callback (lock interno do SDK).

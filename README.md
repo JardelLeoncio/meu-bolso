@@ -15,11 +15,11 @@ Execute `npm test` para os testes de banco e navegador (Chrome instalado).
 
 O banco exige conta previamente autorizada e MFA por autenticador para acesso às despesas. A chave publishable é pública. Nenhuma senha ou chave administrativa deve entrar no repositório.
 
-As sessões ficam nesta aba do navegador. Alterações pendentes usam um rascunho por conta no armazenamento da sessão. Fechar a aba com mudanças pendentes pode perder esse rascunho: baixe o backup antes. A primeira versão exige internet para editar e consulta atualizações a cada 30 segundos e ao voltar à janela. Conflitos bloqueiam novas edições e permitem baixar o rascunho e recarregar a nuvem.
+A sessão de login fica no armazenamento persistente do navegador (localStorage), com renovação automática. Fechar e abrir o navegador mantém o acesso enquanto a sessão for válida. Sair, limpar os dados do site ou revogar/expirar a sessão exige novo login e MFA. O upgrade migra uma vez a sessão antiga da aba, sem guardar a senha. Perfil, alteração de senha, saída, sincronização e histórico antigo ficam em Ajustes. Alterações pendentes usam um rascunho por conta no armazenamento da sessão. Fechar a aba com mudanças pendentes pode perder esse rascunho: baixe o backup antes. A primeira versão exige internet para editar e consulta atualizações a cada 30 segundos e ao voltar à janela. Conflitos bloqueiam novas edições e permitem baixar o rascunho e recarregar a nuvem.
 
 O histórico local antigo permanece intacto e só será enviado à conta após confirmação explícita. A importação inicial só é oferecida se a conta ainda estiver vazia. A restauração de backup substitui o conteúdo da conta; nunca é uma mesclagem automática. Os arquivos JSON e CSV contêm dados pessoais sem criptografia e devem ficar em local privado.
 
-Antes de limpar dados do navegador ou trocar de aparelho, gere um backup em **Configurações → Baixar backup (.json)** e guarde-o em um local privado.
+Antes de limpar dados do navegador ou trocar de aparelho, gere um backup em **Ajustes → Backup dos seus dados → Baixar backup (.json)** e guarde-o em um local privado.
 
 ## Publicação
 
