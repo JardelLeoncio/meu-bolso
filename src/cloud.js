@@ -1,6 +1,5 @@
-import { localDate } from './dates.js';
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_KEY, SITE_URL, TURNSTILE_SITE_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_KEY, SITE_URL, TURNSTILE_SITE_KEY, PUSH_PUBLIC_KEY } from './config.js';
 import './app.js';
 
 const $ = id => document.getElementById(id);
@@ -91,7 +90,7 @@ async function openAccount(session) {
   }
   $('account-email').textContent = session.user.email || 'Minha conta';
   $('profile-name').value = session.user.user_metadata?.display_name || '';
-  $('reminder-status').textContent = localStorage.getItem('meu-bolso-reminders:'+userId)==='on' ? 'Avisos ativados neste aparelho, enquanto o app estiver aberto.' : 'Avisos do sistema desativados. A lista no início continua disponível.';
+  void restoreReminders(userId, epoch);
   document.body.classList.remove('locked'); $('auth-screen').hidden = true;
   $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src'); $('mfa-setup').hidden = true;
   $('login-password').value = ''; $('mfa-code').value = '';
@@ -239,48 +238,62 @@ $('password-form').addEventListener('submit', async e => {
   finally { button.disabled=false; }
 });
 $('logout-all').addEventListener('click', () => { if(confirm('Encerrar o acesso em todos os aparelhos?')) void signOut('global'); });
-let reminderBusy=false;
-async function checkReminders(force=false) {
- if(!userId || pending || busy || document.hidden || reminderBusy)return;
- app.renderDue();
- const id=userId,key='meu-bolso-reminders:'+id;
- if(localStorage.getItem(key)!=='on' || !('Notification' in window) || Notification.permission!=='granted')return;
- const today=localDate(),sentKey=key+':sent';
- if(!force && localStorage.getItem(sentKey)===today)return;
- const items=app.due();if(!items.length)return;
- reminderBusy=true;
+function checkReminders() { if(userId && !document.hidden)app.renderDue(); }
+let reminderAction=false;
+function reminderControls(busy){reminderAction=busy;for(const id of ['enable-reminders','disable-reminders'])$(id).disabled=busy;}
+async function restoreReminders(id,epoch) {
+ const current=()=>id===userId && epoch===generation;
+ $('reminder-status').textContent='Avisos do sistema desativados. A lista no início continua disponível.';
+ if(!PUSH_PUBLIC_KEY || localStorage.getItem('meu-bolso-reminders:'+id)!=='push' || reminderAction)return;
+ reminderControls(true);
  try {
-  const registration=await navigator.serviceWorker?.getRegistration();
-  if(!registration || userId!==id || document.body.classList.contains('locked'))return;
-  const overdue=items.filter(x=>x.days<0).length,soon=items.length-overdue;
-  await registration.showNotification('Meu Bolso • Contas a pagar',{
-   body:`${soon} conta(s) vencem em até 6 dias. ${overdue} conta(s) atrasada(s). Abra o app para conferir.`,
-   tag:'meu-bolso-due',icon:'./icon-192.png',data:{url:new URL('./',location.href).href}
-  });
-  localStorage.setItem(sentKey,today);
- } catch { $('reminder-status').textContent='Não foi possível mostrar o aviso. A lista continua disponível no início.'; }
- finally {reminderBusy=false;}
+  if(!('Notification' in window) || Notification.permission!=='granted')throw Error('permission');
+  const registration=await navigator.serviceWorker.getRegistration();
+  const subscription=await registration?.pushManager.getSubscription();
+  if(!subscription)throw Error('subscription');
+  if(!current())return;
+  const {error}=await client.rpc('bolso_push_subscribe',{p_subscription:subscription.toJSON()});
+  if(error)throw error;
+  if(current())$('reminder-status').textContent='Aparelho cadastrado para o resumo diário às 9h de Brasília.';
+ }catch{if(current())$('reminder-status').textContent='Reative os avisos neste aparelho para confirmar o cadastro.';}
+ finally{reminderControls(false);}
 }
 $('enable-reminders').addEventListener('click',async()=>{
- if(!userId)return;
- if(!('Notification' in window) || !('serviceWorker' in navigator)){
-  $('reminder-status').textContent='Neste navegador os avisos não estão disponíveis. No iPhone, abra o app pelo ícone da Tela de Início.';return;
+ if(!userId || reminderAction)return;
+ if(!PUSH_PUBLIC_KEY){$('reminder-status').textContent='O envio diário ainda precisa ser ativado no servidor.';return;}
+ if(!('Notification' in window) || !('PushManager' in window)){
+  $('reminder-status').textContent='No iPhone, abra o Meu Bolso pelo ícone da Tela de Início para ativar notificações.';return;
  }
- const id=userId;
+ const id=userId,epoch=generation;reminderControls(true);
  try {
-  const permission=await Notification.requestPermission();if(userId!==id)return;
-  if(permission!=='granted'){$('reminder-status').textContent='Permissão não concedida. Você ainda pode consultar a lista no início.';return;}
-  localStorage.setItem('meu-bolso-reminders:'+id,'on');
-  $('reminder-status').textContent='Avisos ativados para esta conta neste aparelho, enquanto o app estiver aberto.';
-  await checkReminders(true);
- }catch{$('reminder-status').textContent='Não foi possível ativar os avisos neste navegador.';}
+  if(await Notification.requestPermission()!=='granted'){ $('reminder-status').textContent='Permissão não concedida.';return; }
+  const registration=await navigator.serviceWorker.getRegistration();
+  if(!registration?.active)throw Error('Service worker indisponível');
+  const raw=atob(PUSH_PUBLIC_KEY.replace(/-/g,'+').replace(/_/g,'/'));
+  const subscription=await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(raw,c=>c.charCodeAt(0))});
+  if(userId!==id || generation!==epoch)return;
+  const {error}=await client.rpc('bolso_push_subscribe',{p_subscription:subscription.toJSON()});
+  if(error)throw error;
+  if(userId!==id || generation!==epoch)return;
+  localStorage.setItem('meu-bolso-reminders:'+id,'push');
+  $('reminder-status').textContent='Resumo diário ativado para este aparelho, às 9h de Brasília, mesmo com o app fechado.';
+ }catch{if(userId===id && generation===epoch)$('reminder-status').textContent='Não foi possível ativar. Confira a conexão e a configuração do servidor.';}
+ finally{reminderControls(false);}
 });
-$('disable-reminders').addEventListener('click',()=>{
- if(userId)localStorage.removeItem('meu-bolso-reminders:'+userId);
- $('reminder-status').textContent='Avisos desativados neste aparelho.';
+$('disable-reminders').addEventListener('click',async()=>{
+ if(!userId || reminderAction)return;
+ const id=userId,epoch=generation;reminderControls(true);
+ try {
+  const registration=await navigator.serviceWorker.getRegistration();const subscription=await registration?.pushManager.getSubscription();
+  if(userId!==id || generation!==epoch)return;
+  if(subscription){const {error}=await client.rpc('bolso_push_unsubscribe',{p_endpoint:subscription.endpoint});if(error)throw error;await subscription.unsubscribe();}
+  localStorage.removeItem('meu-bolso-reminders:'+id);
+  if(userId===id && generation===epoch)$('reminder-status').textContent='Avisos desativados neste aparelho.';
+ }catch{if(userId===id && generation===epoch)$('reminder-status').textContent='Não foi possível desativar no servidor. Tente novamente ou bloqueie notificações nos ajustes do aparelho.';}
+ finally{reminderControls(false);}
 });
-setInterval(()=>void checkReminders(),60000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkReminders();});
+setInterval(checkReminders,60000);
+document.addEventListener('visibilitychange',checkReminders);
 $('retry-access').addEventListener('click', continueLogin);
 $('sync-alert-open').addEventListener('click', () => document.querySelector('[data-page="settings"]').click());
 $('profile-form').addEventListener('submit', async e => {

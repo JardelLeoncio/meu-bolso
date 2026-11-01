@@ -1,6 +1,7 @@
 import {localDate,dateValue,displayDate,dueItems} from './dates.js';
 'use strict';
 const KEY='meu-bolso-v2', OLD_KEY='meu-bolso-v1';
+let dueRequested=location.hash==='#due';
 const euro=(n)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 const plain=(n)=>new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(n);
 const monthText=(key)=>{const [y,m]=key.split('-').map(Number);return new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(y,m-1,1))).replace(' de ',' de ')};
@@ -46,8 +47,9 @@ $('f-status').addEventListener('change',()=>{
 });
 function renderDue() {
   const list=dueItems(state), overdue=list.filter(x=>x.days<0), upcoming=list.filter(x=>x.days>=0);
-  $('due-summary').textContent=`${upcoming.length} conta(s) vencem de hoje até os próximos 6 dias. ${overdue.length} conta(s) atrasada(s).`;
+  $('due-summary').textContent=`${upcoming.length ? upcoming.length+' conta(s) no próximo vencimento: '+displayDate(upcoming[0].dueDate)+'.' : 'Nenhum próximo vencimento cadastrado.'} ${overdue.length} conta(s) atrasada(s).`;
   $('due-panel').hidden=list.length===0;
+  if(dueRequested && list.length){$('due-panel').querySelector('details').open=true;dueRequested=false;}
   $('due-list').innerHTML=list.map(x=>`<button type="button" class="due-entry" data-due-month="${x.month}" data-due-id="${safe(x.id)}"><span><strong>${safe(x.name)}</strong><small>${displayDate(x.dueDate)} • ${x.days<0?'Atrasada há '+(-x.days)+' dia(s)':x.days===0?'Vence hoje':'Vence em '+x.days+' dia(s)'}</small></span><strong>${euro(x.amount)}</strong></button>`).join('');
 }
 $('due-list').addEventListener('click',e=>{

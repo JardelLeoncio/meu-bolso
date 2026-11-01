@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
+    "push:prepare": "node scripts/prepare-push.mjs",
+    "push:enable": "node scripts/prepare-push.mjs --enable-client",
     "build": "esbuild src/cloud.js --bundle --minify --legal-comments=eof --format=esm --platform=browser --target=es2022 --outfile=cloud.js",
     "test": "node --test tests/*.test.js"
   },

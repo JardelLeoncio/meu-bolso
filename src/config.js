@@ -5,3 +5,6 @@ export const SITE_URL = 'https://jardelleoncio.github.io/meu-bolso/';
 
 // Chave pública do widget Turnstile. A chave secreta fica somente no Supabase.
 export const TURNSTILE_SITE_KEY = '';
+
+// Preencher após configurar Web Push no servidor; somente a chave pública.
+export const PUSH_PUBLIC_KEY = '';
