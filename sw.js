@@ -1,4 +1,4 @@
-const CACHE = 'meu-bolso-pwa-v7-security';
+const CACHE = 'meu-bolso-pwa-v8-dates';
 const ASSETS = ['./','./index.html','./app.css','./auth.css','./cloud.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(
@@ -15,4 +15,15 @@ self.addEventListener('fetch', event => {
     if (response.ok) { const copy = response.clone(); event.waitUntil(caches.open(CACHE).then(cache => cache.put(request, copy))); }
     return response;
   }).catch(async () => (await caches.match(request)) || Response.error()));
+});
+
+self.addEventListener('notificationclick',event=>{
+ event.notification.close();
+ event.waitUntil((async()=>{
+  const url=new URL('./',self.registration.scope).href;
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  const existing=windows.find(client=>client.url.startsWith(self.registration.scope));
+  if(existing){await existing.focus();existing.postMessage({type:'OPEN_DUE'});}
+  else await self.clients.openWindow(url);
+ })());
 });

@@ -153,5 +153,26 @@ test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', 
     assert.equal(await s.page.locator('#mfa-form').isVisible(),false);
     await s.page.evaluate(()=>localStorage.clear());await s.page.reload();
     await s.page.locator('#login-form').waitFor({state:'visible'});assert.deepEqual(s.errors,[]);await s.context.close();
+    s=await setup('aal2');await s.page.locator('.app-shell').waitFor({state:'visible'});
+    const today=await s.page.evaluate(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`});
+    await s.page.locator('#add-button').click();await s.page.locator('#f-name').fill('Conta com vencimento');await s.page.locator('#f-amount').fill('10');await s.page.locator('#f-due-date').fill(today);
+    await s.page.locator('#expense-form button[type="submit"]').click();await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
+    await s.page.locator('#due-panel').waitFor({state:'visible'});assert.match(await s.page.locator('#due-summary').innerText(),/1 conta/);
+    await s.page.locator('#due-panel summary').click();await s.page.locator('.due-entry').click();
+    await s.page.locator('#f-status').selectOption('paid');assert.equal(await s.page.locator('#f-paid-date').inputValue(),today);
+    await s.page.locator('#f-paid-date').fill('2026-10-20');await s.page.locator('#expense-form button[type="submit"]').click();await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
+    await s.page.reload();await s.page.locator('.app-shell').waitFor({state:'visible'});
+    assert.equal(await s.page.locator('#due-panel').isVisible(),false);
+    const savedItem=await s.page.evaluate(()=>Object.values(window.Bolso.get().months).flat().find(x=>x.name==='Conta com vencimento'));
+    assert.equal(savedItem.paidDate,'2026-10-20');assert.equal(savedItem.dueDate,today);
+    await s.page.locator('[data-page="expenses"]').click();await s.page.locator('[data-toggle="'+savedItem.id+'"]').click();await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
+    assert.equal(await s.page.evaluate(id=>Object.values(window.Bolso.get().months).flat().find(x=>x.id===id).paidDate,savedItem.id),null);
+    await s.page.locator('[data-page="overview"]').click();await s.page.setViewportSize({width:390,height:844});await s.page.locator('#due-panel summary').click();
+    assert.equal(await s.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await s.page.screenshot({path:new URL('../work/due-mobile.png',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'),fullPage:true});
+    await s.page.locator('[data-page="settings"]').click();
+    const downloadPromise=s.page.waitForEvent('download');await s.page.locator('#export-csv').click();const report=await downloadPromise;
+    const csv=await readFile(await report.path(),'utf8');assert.match(csv,/Data de pagamento/);assert.ok(csv.includes(today));
+    assert.deepEqual(s.errors,[]);await s.context.close();
   } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
 });

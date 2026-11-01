@@ -1,3 +1,4 @@
+import { localDate } from './dates.js';
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_KEY, SITE_URL, TURNSTILE_SITE_KEY } from './config.js';
 import './app.js';
@@ -39,6 +40,7 @@ const editable = () => !!userId && !pending && !busy && navigator.onLine;
 const draftKey = id => 'meu-bolso-draft:' + id;
 const message = text => { $('auth-message').textContent = text; };
 const status = text => {
+  if(text==='Sincronizado') queueMicrotask(()=>void checkReminders());
   $('sync-status').textContent = text;
   const warning = !!userId && text !== 'Sincronizado' && text !== 'Salvando na nuvem…';
   $('sync-alert').hidden = !warning;
@@ -89,6 +91,7 @@ async function openAccount(session) {
   }
   $('account-email').textContent = session.user.email || 'Minha conta';
   $('profile-name').value = session.user.user_metadata?.display_name || '';
+  $('reminder-status').textContent = localStorage.getItem('meu-bolso-reminders:'+userId)==='on' ? 'Avisos ativados neste aparelho, enquanto o app estiver aberto.' : 'Avisos do sistema desativados. A lista no início continua disponível.';
   document.body.classList.remove('locked'); $('auth-screen').hidden = true;
   $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src'); $('mfa-setup').hidden = true;
   $('login-password').value = ''; $('mfa-code').value = '';
@@ -236,6 +239,48 @@ $('password-form').addEventListener('submit', async e => {
   finally { button.disabled=false; }
 });
 $('logout-all').addEventListener('click', () => { if(confirm('Encerrar o acesso em todos os aparelhos?')) void signOut('global'); });
+let reminderBusy=false;
+async function checkReminders(force=false) {
+ if(!userId || pending || busy || document.hidden || reminderBusy)return;
+ app.renderDue();
+ const id=userId,key='meu-bolso-reminders:'+id;
+ if(localStorage.getItem(key)!=='on' || !('Notification' in window) || Notification.permission!=='granted')return;
+ const today=localDate(),sentKey=key+':sent';
+ if(!force && localStorage.getItem(sentKey)===today)return;
+ const items=app.due();if(!items.length)return;
+ reminderBusy=true;
+ try {
+  const registration=await navigator.serviceWorker?.getRegistration();
+  if(!registration || userId!==id || document.body.classList.contains('locked'))return;
+  const overdue=items.filter(x=>x.days<0).length,soon=items.length-overdue;
+  await registration.showNotification('Meu Bolso • Contas a pagar',{
+   body:`${soon} conta(s) vencem em até 6 dias. ${overdue} conta(s) atrasada(s). Abra o app para conferir.`,
+   tag:'meu-bolso-due',icon:'./icon-192.png',data:{url:new URL('./',location.href).href}
+  });
+  localStorage.setItem(sentKey,today);
+ } catch { $('reminder-status').textContent='Não foi possível mostrar o aviso. A lista continua disponível no início.'; }
+ finally {reminderBusy=false;}
+}
+$('enable-reminders').addEventListener('click',async()=>{
+ if(!userId)return;
+ if(!('Notification' in window) || !('serviceWorker' in navigator)){
+  $('reminder-status').textContent='Neste navegador os avisos não estão disponíveis. No iPhone, abra o app pelo ícone da Tela de Início.';return;
+ }
+ const id=userId;
+ try {
+  const permission=await Notification.requestPermission();if(userId!==id)return;
+  if(permission!=='granted'){$('reminder-status').textContent='Permissão não concedida. Você ainda pode consultar a lista no início.';return;}
+  localStorage.setItem('meu-bolso-reminders:'+id,'on');
+  $('reminder-status').textContent='Avisos ativados para esta conta neste aparelho, enquanto o app estiver aberto.';
+  await checkReminders(true);
+ }catch{$('reminder-status').textContent='Não foi possível ativar os avisos neste navegador.';}
+});
+$('disable-reminders').addEventListener('click',()=>{
+ if(userId)localStorage.removeItem('meu-bolso-reminders:'+userId);
+ $('reminder-status').textContent='Avisos desativados neste aparelho.';
+});
+setInterval(()=>void checkReminders(),60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkReminders();});
 $('retry-access').addEventListener('click', continueLogin);
 $('sync-alert-open').addEventListener('click', () => document.querySelector('[data-page="settings"]').click());
 $('profile-form').addEventListener('submit', async e => {

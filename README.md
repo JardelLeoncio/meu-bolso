@@ -26,3 +26,13 @@ Antes de limpar dados do navegador ou trocar de aparelho, gere um backup em **Aj
 O projeto continua estático no GitHub Pages. Envie apenas os arquivos públicos revisados; nunca envie backups ou históricos pessoais. `src/` e `supabase/` são código público sem segredos. As regras no banco protegem os dados, não a ocultação desses arquivos.
 
 Os testes usam dados fictícios, um PostgreSQL local via PGlite e respostas de Auth simuladas no Chrome. Não substituem o teste final no Supabase, a verificação de e-mails nem uma auditoria independente. Nenhum dado financeiro real foi enviado durante a preparação.
+
+## Datas e avisos de vencimento
+
+Cada despesa pode ter dueDate (vencimento manual) e paidDate (pagamento), em YYYY-MM-DD. Ao marcar como paga, o app usa o dia local do aparelho; a data pode ser editada. Desmarcar limpa a data de pagamento. Despesas antigas pagas sem data continuam sem data conhecida. Ao copiar fixas para outro mês, as duas datas são limpas para preenchimento manual.
+
+O início lista pendentes de todos os meses com vencimento entre hoje e seis dias à frente, além de atrasadas separadas na contagem. Pagas, status desconhecido e contas sem vencimento não entram. JSON e CSV preservam as datas. Recarregue o app em todos os aparelhos antes de editar após esta atualização; clientes antigos não conhecem esses campos.
+
+Os avisos do sistema são opcionais, por conta/aparelho, até um resumo por dia quando o app está aberto e visível, após permitir notificações. Exibem somente quantidades, sem nomes ou valores. No iPhone use o ícone da Tela de Início. Entrega real no iPhone ainda depende de teste no aparelho. Não há agendamento ou push com o app fechado: isso exige configurar um serviço de envio, inscrições e agendamento no servidor. O painel interno independe dessa permissão.
+
+As datas usam campos adicionais do JSON já aceitos pelo banco; esta atualização não exige reaplicar SQL. A validação de datas de calendário é feita pelo cliente; os controles existentes de autorização, tamanho e estrutura no servidor permanecem.
