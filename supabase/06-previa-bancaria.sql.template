@@ -1,5 +1,5 @@
--- Substitua __OWNER_UUID__ pelo ID da sua conta em Authentication > Users.
--- A versão personalizada preparada no computador já contém o ID do titular.
+-- Modelo de instalação. No projeto pessoal, execute work/06-previa-bancaria.sql.
+-- Para outra instalação, preencha o ID do titular em uma cópia privada.
 begin;
 create table if not exists bolso_private.bank_preview (
   singleton boolean primary key check(singleton),
@@ -9,8 +9,13 @@ create table if not exists bolso_private.bank_preview (
 alter table bolso_private.bank_preview enable row level security;
 revoke all on bolso_private.bank_preview from public, anon, authenticated;
 do $$
-declare expected uuid := '__OWNER_UUID__';
+declare owner_text text := '__OWNER_UUID__';
+        expected uuid;
 begin
+  if owner_text !~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' then
+    raise exception 'Abra work/06-previa-bancaria.sql e execute a cópia preparada para o titular.';
+  end if;
+  expected := owner_text::uuid;
   if not exists(select 1 from bolso_private.members where user_id=expected) then
     raise exception 'O titular precisa ser membro autorizado';
   end if;

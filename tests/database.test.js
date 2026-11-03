@@ -51,7 +51,7 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     const protection=await readFile(new URL('../supabase/03-protecao.sql',import.meta.url),'utf8');
     await db.exec(protection);await db.exec(protection);
     await db.exec('create role service_role');
-    const bank=(await readFile(new URL('../supabase/06-previa-bancaria.sql',import.meta.url),'utf8')).replaceAll('__OWNER_UUID__',a);
+    const bank=(await readFile(new URL('../supabase/06-previa-bancaria.sql.template',import.meta.url),'utf8')).replaceAll('__OWNER_UUID__',a);
     await db.exec(bank);await db.exec(bank);
     const access='select public.bolso_bank_preview_access($1) as slot';
     const finish='select public.bolso_bank_preview_finish($1,$2::jsonb)';
