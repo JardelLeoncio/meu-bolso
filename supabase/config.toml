@@ -1,2 +1,6 @@
 [functions.send-reminders]
 verify_jwt = false
+
+[functions.bank-preview]
+# The caller JWT is validated by PostgREST before Pluggy is contacted.
+verify_jwt = false

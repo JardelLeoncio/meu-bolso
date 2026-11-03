@@ -50,6 +50,25 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     await db.query('insert into auth.sessions values($1,$1),($2,$2)',[a,b]);
     const protection=await readFile(new URL('../supabase/03-protecao.sql',import.meta.url),'utf8');
     await db.exec(protection);await db.exec(protection);
+    await db.exec('create role service_role');
+    const bank=(await readFile(new URL('../supabase/06-previa-bancaria.sql',import.meta.url),'utf8')).replaceAll('__OWNER_UUID__',a);
+    await db.exec(bank);await db.exec(bank);
+    const access='select public.bolso_bank_preview_access($1) as slot';
+    const finish='select public.bolso_bank_preview_finish($1,$2::jsonb)';
+    for(const [role,id,aal] of [['anon',null,null],['authenticated',a,'aal1'],['authenticated',b,'aal2']]) {
+      await assert.rejects(act(role,id,aal,access,[true]),e=>e.code==='42501');
+    }
+    const {ticket}=(await act('authenticated',a,'aal2',access,[true])).rows[0].slot;
+    assert.ok(ticket);
+    await assert.rejects(act('authenticated',a,'aal2',access,[true]),e=>e.code==='PT429');
+    await assert.rejects(act('authenticated',a,'aal2',finish,[ticket,{}]),e=>e.code==='42501');
+    await assert.rejects(act('authenticated',a,'aal2','select * from bolso_private.bank_preview'));
+    const sample={movements:[],fetchedAt:'2026-11-03'};
+    await act('service_role',null,null,finish,[ticket,sample]);
+    assert.deepEqual((await act('authenticated',a,'aal2',access,[true])).rows[0].slot,{preview:sample});
+    await assert.rejects(act('authenticated',b,'aal2',access,[false]),e=>e.code==='42501');
+    await assert.rejects(act('service_role',null,null,finish,[ticket,sample]));
+    await db.exec("reset role; update bolso_private.request_limits set window_start=now()-interval '2 minutes'");
     await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_documents'));
     await assert.rejects(act('anon',null,null,'select * from public.bolso_read()'));
     await assert.rejects(act('authenticated',a,'aal1','select * from public.bolso_read()'));
@@ -65,5 +84,6 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     await db.exec('reset role');await db.query('delete from auth.sessions where user_id=$1',[a]);
     await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_read()'),e=>e.code==='42501');
     await assert.rejects(act('authenticated',a,'aal2',save,[changed,2]),e=>e.code==='42501');
+    await assert.rejects(act('authenticated',a,'aal2',access,[true]),e=>e.code==='42501');
   } finally { await db.close(); }
 });

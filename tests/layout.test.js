@@ -36,6 +36,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
    if(path.endsWith('/auth/v1/user'))body=user;
    else if(path.endsWith('/rpc/bolso_access'))body=true;
    else if(path.endsWith('/rpc/bolso_read')){if(first){first=false;await gate;}body={document:doc,revision:1};}
+   else if(path.endsWith('/functions/v1/bank-preview'))body={from:'2026-11-01',to:'2026-11-30',fetchedAt:new Date().toISOString(),movements:[{bank:'Itaú',account:'Conta',date:'2026-11-03',description:'Teste de entrada',direction:'Entrada',currency:'BRL',amount:20,pending:false},{bank:'Mercado Pago',account:'Cartão',date:'2026-11-03',description:'Teste de saída',direction:'Saída',currency:'BRL',amount:10,pending:false}]};
    else{writes++;throw Error('Unexpected mutation/API in layout test: '+path);}
    await route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   });
@@ -81,6 +82,14 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.locator('[data-page="settings"]').click();await page.locator('input[name="theme"][value="system"]').check();
   await page.emulateMedia({colorScheme:'light'});assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  await page.locator('#bank-load').click();
+  await page.locator('#bank-results').waitFor({state:'visible'});
+  assert.equal(await page.locator('#bank-movements li').count(),2);
+  await page.locator('#bank-filter').selectOption('Saída');
+  assert.equal(await page.locator('#bank-movements li').count(),1);
+  assert.match(await page.locator('#bank-movements').innerText(),/Teste de saída/);
+  await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'meu-bolso-auth',newValue:null})));
+  assert.equal(await page.locator('#bank-movements').textContent(),'');
   assert.equal(writes,0);assert.deepEqual(errors,[]);await context.close();
   // Sem sessão, a abertura termina na tela de login; nenhum dado é exibido.
   const anonymous=await browser.newContext({serviceWorkers:'block',colorScheme:'dark',viewport:{width:390,height:844}}),login=await anonymous.newPage();

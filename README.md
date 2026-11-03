@@ -48,3 +48,11 @@ A abertura mostra somente o ícone enquanto a conta é verificada. Uma sessão v
 A navegação usa menu lateral no computador e barra inferior no celular. Ajustes reúne perfil e aparência, notificações e sincronização, backups/exportação e segurança. Importação em lote e exclusão ficam em seções recolhíveis. As operações financeiras, datas, autorização e serviço de notificações continuam usando os fluxos existentes; esta atualização não requer SQL.
 
 A verificação local usa somente dados fictícios: temas persistentes, preferência do sistema, abertura com e sem sessão, modal por teclado e telas de 320, 390, 768 e 1366 pixels. A aparência e o teclado do Safari devem ser conferidos no iPhone real após publicar.
+
+## Prévia bancária pessoal
+
+Em Ajustes → Bancos → Consultar prévia, o titular pode consultar 30 dias de movimentações. A última prévia fica em uma tabela privada separada das despesas. Ela é reutilizada por 24 horas e substituída após a próxima consulta bem-sucedida. O resultado diferencia entradas, saídas, conta e cartão. A revisão ocorre antes de qualquer incorporação aos lançamentos.
+
+Para ativar, cadastre PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_ITAU_ITEM_ID e PLUGGY_MERCADO_PAGO_ITEM_ID em Edge Functions → Secrets. Aplique supabase/06-previa-bancaria.sql com o marcador __OWNER_UUID__ substituído pelo ID do titular em Authentication → Users. Confira o titular antes de executar. O arquivo preparado em work/06-previa-bancaria.sql já contém o ID para a instalação pessoal deste projeto.
+
+Crie a Edge Function bank-preview com o conteúdo de supabase/functions/bank-preview/index.ts em index.ts. Desative a verificação JWT legada do gateway somente para essa função. Antes de chamar a Pluggy, a função encaminha o JWT a uma RPC do PostgREST que valida a sessão, o MFA e o titular explicitamente cadastrado. Para conferir a ativação, entre pelo site e toque em Consultar prévia. O teste local usa dados sintéticos.

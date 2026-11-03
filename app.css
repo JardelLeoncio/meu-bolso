@@ -159,3 +159,9 @@ svg{width:22px;height:22px;flex:none}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
 
 body.modal-open{overflow:hidden}
+
+#bank-status:not(:empty){margin:14px 0}
+#bank-filter{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px}
+#bank-movements{list-style:none;padding:0;margin:12px 0}
+#bank-movements li{padding:12px 0;border-top:1px solid var(--line);display:grid;gap:4px;font-size:13px;overflow-wrap:anywhere}
+#bank-movements small{color:var(--sub)}

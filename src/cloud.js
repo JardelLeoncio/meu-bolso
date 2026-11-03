@@ -1,3 +1,4 @@
+import { setupBankPreview } from './bank-preview.js';
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_KEY, SITE_URL, TURNSTILE_SITE_KEY, PUSH_PUBLIC_KEY } from './config.js';
 import './app.js';
@@ -50,7 +51,9 @@ function freeze() {
   for (const el of document.querySelectorAll('.page:not(#settings),.month-box,.fab,.modal-overlay,.settings-data')) el.inert = !editable();
   $('legacy-import').disabled = !editable();
 }
+const clearBankPreview = setupBankPreview(client, () => userId ? generation : null);
 function lock(text) {
+  clearBankPreview();
   generation++; userId = null; pending = null; revision = 0; busy = false;
   app.clear(); document.body.classList.add('locked'); $('auth-screen').hidden = false;
   $('sync-alert').hidden = true;
