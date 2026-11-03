@@ -48,7 +48,8 @@ test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', 
       else if(path.endsWith('/challenge'))body={id:'challenge-new',expires_at:9999999999};
       else if(path.endsWith('/verify')){testUser.factors=user.factors;body={access_token:jwt('aal2'),refresh_token:'fake',token_type:'bearer',expires_in:3600,user:testUser};}
       else if(path.endsWith('/rpc/bolso_access'))body=allowed;
-      else if(path.endsWith('/rpc/bolso_read')){queries++;body={document:remote,revision:rev};}
+      else if(path.endsWith('/rpc/bolso_finance_period'))body={days:0,rows:[]};
+   else if(path.endsWith('/rpc/bolso_read')){queries++;body={document:remote,revision:rev};}
       else if(path.endsWith('/rpc/bolso_save')){
         writes++;
         if(failSave){await route.abort('failed');return;}

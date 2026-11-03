@@ -68,6 +68,38 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     assert.deepEqual((await act('authenticated',a,'aal2',access,[true])).rows[0].slot,{preview:sample});
     await assert.rejects(act('authenticated',b,'aal2',access,[false]),e=>e.code==='42501');
     await assert.rejects(act('service_role',null,null,finish,[ticket,sample]));
+    await db.exec('reset role');
+    const finance=await readFile(new URL('../supabase/07-historico-financeiro.sql',import.meta.url),'utf8');
+    await db.exec(finance);await db.exec(finance);
+    const period='select public.bolso_finance_period($1) as report';
+    const archive='select public.bolso_finance_archive($1) as n';
+    const classify='select public.bolso_finance_classify($1,$2)';
+    for(const [role,id,aal] of [['anon',null,null],['authenticated',a,'aal1'],['authenticated',b,'aal2']]){
+      await assert.rejects(act(role,id,aal,period,['2026-11']),e=>e.code==='42501');
+      await assert.rejects(act(role,id,aal,archive,['first']),e=>e.code==='42501');
+    }
+    const entry={ref:'a'.repeat(64),date:'2026-11-03',bank:'Itaú',account:'Conta',direction:'Entrada',amount:2500,currency:'BRL'};
+    const debit={...entry,ref:'b'.repeat(64),direction:'Saída',amount:80};
+    const snapshot={version:2,fetchedAt:'first',from:'2026-11-01',to:'2026-11-30',movements:[entry,debit]};
+    async function stage(data) {
+      await db.exec('reset role');
+      await db.query('update bolso_private.bank_preview set preview=$1,refreshed_at=now()', [JSON.stringify(data)]);
+    }
+    await stage(snapshot);
+    await assert.rejects(act('authenticated',a,'aal2',archive,['old']),e=>e.code==='22023');
+    assert.equal((await act('authenticated',a,'aal2',archive,['first'])).rows[0].n,2);
+    await act('authenticated',a,'aal2',classify,[entry.ref,'salary']);
+    await assert.rejects(act('authenticated',a,'aal2',classify,[debit.ref,'salary']),e=>e.code==='22023');
+    await act('authenticated',a,'aal2',archive,['first']);
+    let report=(await act('authenticated',a,'aal2',period,['2026-11'])).rows[0].report;
+    assert.equal(report.days,30);assert.equal(report.rows.length,2);assert.equal(report.rows.find(x=>x.ref===entry.ref).chosen,'salary');
+    await stage({...snapshot,movements:[{...debit,amount:90}]});
+    await act('authenticated',a,'aal2',archive,['first']);
+    report=(await act('authenticated',a,'aal2',period,['2026-11'])).rows[0].report;
+    assert.equal(report.rows.find(x=>x.ref===entry.ref).absent,true);
+    assert.equal(report.rows.find(x=>x.ref===debit.ref).amount,90);
+    assert.equal((await act('authenticated',a,'aal2',period,['2026-10'])).rows[0].report.days,0);
+    await assert.rejects(act('authenticated',a,'aal2','select * from bolso_private.finance_movements'));
     await db.exec("reset role; update bolso_private.request_limits set window_start=now()-interval '2 minutes'");
     await assert.rejects(act('authenticated',a,'aal2','select * from public.bolso_documents'));
     await assert.rejects(act('anon',null,null,'select * from public.bolso_read()'));

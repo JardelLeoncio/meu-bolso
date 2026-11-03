@@ -38,8 +38,15 @@ function rpc(name: string, body: unknown, key: string, authorization: string) {
 }
 type Movement = {
   bank: string; account: string; direction: string; date: string; description: string;
-  currency: string; amount: number; pending: boolean;
+  currency: string; amount: number; pending: boolean; ref: string;
+  categoryHint: string; operation: string; cardName: string;
 };
+type Bill = {bank:string; cardName:string; dueDate:string; amount:number; currency:string};
+async function reference(account:string, id:string) {
+  const bytes = new TextEncoder().encode(account+'/'+id);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+  return Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function loadPreview() {
   const sources = [
     {bank:'Itaú', item:env('PLUGGY_ITAU_ITEM_ID')},
@@ -57,10 +64,36 @@ async function loadPreview() {
   const to = new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(new Date(fetchedAt));
   const from = new Date(Date.parse(to+'T00:00:00Z') - 29*86400000).toISOString().slice(0,10);
   const movements = new Map<string,Movement>();
+  const bills = new Map<string,Bill>();
+  const billNotes = new Set<string>();
   const started = Date.now();
   let pages = 0;
   function bounded() {
     if (++pages>40 || Date.now()-started>65000) throw new PreviewError(503,'limit');
+  }
+  async function loadBills(bank:string, cardName:string, account:string) {
+    let page=1, found=false;
+    const cardBills = new Map<string,Bill>();
+    try {
+      while (true) {
+        bounded();
+        const data=await get('/bills?'+new URLSearchParams({accountId:account,page:String(page),pageSize:'100'}));
+        if(!Array.isArray(data.results)) throw new Error('Invalid bill list');
+        for(const bill of data.results) {
+          if(!bill.id || !Number.isFinite(bill.totalAmount) || !bill.dueDate) continue;
+          cardBills.set(account+'/'+bill.id,{bank,cardName,dueDate:String(bill.dueDate).slice(0,10),
+            amount:bill.totalAmount,currency:String(bill.totalAmountCurrencyCode||'')});
+          found=true;
+        }
+        if(page >= (data.totalPages || 1)) break;
+        page++;
+      }
+      for(const [key,bill] of cardBills)bills.set(key,bill);
+      if(!found) billNotes.add(bank+' · '+cardName+': nenhuma fatura informada.');
+    } catch(error) {
+      if(error instanceof PreviewError && error.reason==='limit') throw error;
+      billNotes.add(bank+' · '+cardName+': faturas indisponíveis nesta consulta.');
+    }
   }
   for (const {bank,item} of sources) {
     const info = await get('/items/'+item);
@@ -77,6 +110,8 @@ async function loadPreview() {
         if (account.itemId!==item || !uuid.test(account.id)) throw new PreviewError(503,'provider');
         if (!['BANK','CREDIT'].includes(account.type)) continue;
         eligibleAccounts++;
+        const cardName=account.type==='CREDIT'?String(account.name||'Cartão').slice(0,70):'';
+        if(cardName) await loadBills(bank,cardName,account.id);
         let query = '?'+new URLSearchParams({accountId:account.id,dateFrom:from,dateTo:to});
         while (query) {
           bounded();
@@ -88,11 +123,14 @@ async function loadPreview() {
             const date = String(movement.date).slice(0,10);
             if (date<from || date>to) continue;
             movements.set(account.id+'/'+movement.id,{
-              bank, account:account.type==='CREDIT'?'Cartão':'Conta',
+              bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,
+              ref:await reference(account.id,String(movement.id)),
+              categoryHint:String(movement.category||movement.merchant?.category||'').slice(0,100),
+              operation:String(movement.operationType||'').slice(0,50),
               direction:movement.type==='CREDIT'?'Entrada':movement.type==='DEBIT'?'Saída':'A conferir',
               date, description:String(movement.description||'Movimentação').slice(0,200),
               currency:String(movement.currencyCode||'').slice(0,3),
-              amount:Math.abs(movement.amount), pending:movement.status==='PENDING',
+              amount:Math.abs(movement.amount), pending:movement.status!=='POSTED',
             });
             if (movements.size>3000) throw new PreviewError(503,'limit');
           }
@@ -106,7 +144,7 @@ async function loadPreview() {
     }
     if (!eligibleAccounts) throw new PreviewError(503,'connection');
   }
-  return {from,to,fetchedAt,movements:[...movements.values()].sort((a,b)=>b.date.localeCompare(a.date))};
+  return {version:2,from,to,fetchedAt,bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].sort((a,b)=>b.date.localeCompare(a.date))};
 }
 Deno.serve(async request=>{
   if (request.method==='OPTIONS') return new Response(null,{status:204,headers});

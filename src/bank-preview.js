@@ -1,76 +1,98 @@
-export function setupBankPreview(client, currentSession) {
-  const button = document.getElementById('bank-load');
-  const status = document.getElementById('bank-status');
-  const results = document.getElementById('bank-results');
-  const list = document.getElementById('bank-movements');
-  const more = document.getElementById('bank-more');
-  const filter = document.getElementById('bank-filter');
-  let rows = [], shown = 0, controller;
-  const day = value => value.split('-').reverse().join('/');
+import {categories,categoryFor} from './finance.js';
+import {setupFinanceReport} from './finance-report.js';
 
+const el=id=>document.getElementById(id);
+const date=value=>value.split('-').reverse().join('/');
+const amount=(value,currency)=>/^[A-Z]{3}$/.test(currency)
+  ? new Intl.NumberFormat('pt-BR',{style:'currency',currency}).format(value)
+  : value.toLocaleString('pt-BR');
+
+export function setupBankPreview(client,currentSession) {
+  const report=setupFinanceReport(client,currentSession);
+  const button=el('bank-load'),status=el('bank-status'), save=el('finance-save');
+  const list=el('bank-movements'),results=el('bank-results');
+  const more=el('bank-more'),filter=el('bank-filter'),institution=el('bank-institution'),search=el('bank-search');
+  let snapshot=null,shown=30,controller;
   function render() {
-    const filtered = rows.filter(row => !filter.value || row.direction === filter.value);
+    const query=search.value.trim().toLocaleLowerCase('pt-BR');
+    const rows=(snapshot?.movements||[]).filter(row=>
+      (!filter.value || row.direction===filter.value) && (!institution.value || row.bank===institution.value) &&
+      [row.description,categories[categoryFor(row)]].join(' ').toLocaleLowerCase('pt-BR').includes(query));
     list.replaceChildren();
-    for (const row of filtered.slice(0, shown)) {
-      const li = document.createElement('li');
-      const name = document.createElement('strong');
-      const detail = document.createElement('small');
-      const amount = document.createElement('span');
-      name.textContent = row.description;
-      detail.textContent = [day(row.date),row.bank,row.account,row.pending?'Pendente':''].filter(Boolean).join(' · ');
-      const formatted = /^[A-Z]{3}$/.test(row.currency)
-        ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:row.currency}).format(row.amount)
-        : row.amount.toLocaleString('pt-BR');
-      amount.textContent = row.direction+' · '+formatted;
-      li.append(name,detail,amount);
-      list.append(li);
+    for(const row of rows.slice(0,shown)){
+      const li=document.createElement('li'),name=document.createElement('strong'),detail=document.createElement('small'),value=document.createElement('span');
+      name.textContent=row.description;
+      detail.textContent=[date(row.date),row.bank,row.cardName||row.account,categories[categoryFor(row)],row.pending?'Pendente':''].filter(Boolean).join(' · ');
+      value.textContent=row.direction+' · '+amount(row.amount,row.currency);
+      li.append(name,detail,value);list.append(li);
     }
-    if (!filtered.length) {
-      const empty = document.createElement('li');
-      empty.textContent = 'Nenhuma movimentação nesta seleção.';
-      list.append(empty);
+    if(!rows.length){const empty=document.createElement('li');empty.textContent='Nenhuma movimentação nesta seleção.';list.append(empty);}
+    more.hidden=shown>=rows.length;
+  }
+  function renderBills(){
+    const host=el('finance-bills');host.replaceChildren();
+    if(!snapshot){host.textContent='Consulte os bancos para ver as faturas disponíveis.';return;}
+    if(!Array.isArray(snapshot.bills)){host.textContent='Esta prévia ainda não inclui faturas. Atualize a função bank-preview no Supabase.';return;}
+    for(const bill of snapshot.bills){
+      const article=document.createElement('article'),name=document.createElement('span'),total=document.createElement('strong'),due=document.createElement('small');
+      name.textContent=bill.bank+' · '+bill.cardName;total.textContent=amount(bill.amount,bill.currency);
+      due.textContent='Vencimento em '+date(bill.dueDate);
+      article.append(name,total,due);host.append(article);
     }
-    more.hidden = shown >= filtered.length;
+    for(const note of snapshot.billNotes||[]){const p=document.createElement('p');p.textContent=note;host.append(p);}
+    if(!host.childElementCount)host.textContent='Os bancos não informaram faturas para essas contas.';
   }
-  filter.addEventListener('change',()=>{ shown=30; render(); });
-  more.addEventListener('click',()=>{ shown+=30; render(); });
-  function clear() {
-    controller?.abort();
-    rows = []; shown = 0; filter.value = '';
-    list.replaceChildren(); status.textContent=''; results.hidden=true; button.disabled=false;
+  function pane(name){
+    el('statement-pane').hidden=name!=='statement';el('bills-pane').hidden=name!=='bills';
+    document.querySelectorAll('[data-bank-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.bankView===name)));
   }
+  document.querySelectorAll('[data-bank-view]').forEach(b=>b.addEventListener('click',()=>pane(b.dataset.bankView)));
+  for(const field of [filter,institution,search])field.addEventListener(field===search?'input':'change',()=>{shown=30;render();});
+  more.addEventListener('click',()=>{shown+=30;render();});
+  function clear(){
+    controller?.abort();snapshot=null;shown=30;filter.value='';institution.value='';search.value='';
+    list.replaceChildren();status.textContent='';results.hidden=true;button.disabled=false;save.disabled=true;
+    pane('statement');renderBills();report.clear();
+  }
+  clear();
   button.addEventListener('click',async()=>{
-    const session = currentSession();
-    if (session === null || button.disabled) return;
-    clear();
-    controller = new AbortController();
-    button.disabled = true;
-    status.textContent = 'Consultando os bancos…';
-    try {
-      const {data,error} = await client.functions.invoke('bank-preview',{body:{},signal:controller.signal});
-      if (error) {
-        const payload = await error.context?.json?.().catch(()=>null);
-        const messages = {
-          access:'Entre novamente com a conta titular e confirme a verificação em duas etapas.',
-          connection:'Confira no Meu Pluggy se as duas conexões estão atualizadas e autorizadas.',
-          wait:'Já existe uma consulta recente. Aguarde dois minutos antes de tentar de novo.',
-          setup:'Confira os quatro segredos e a configuração da função e do banco no Supabase.',
-          provider:'A Pluggy recusou a consulta. Confira as credenciais e o estado das conexões.',
-          limit:'O volume ultrapassou o limite desta prévia. A consulta ficou incompleta.',
+    const session=currentSession();
+    if(session===null || button.disabled)return;
+    controller=new AbortController();button.disabled=true;save.disabled=true;status.textContent='Consultando os bancos…';
+    try{
+      const {data,error}=await client.functions.invoke('bank-preview',{body:{},signal:controller.signal});
+      if(error){
+        const payload=await error.context?.json?.().catch(()=>null);
+        const messages={
+          access:'Entre com a conta titular e confirme a verificação em duas etapas.',
+          connection:'Confira no Meu Pluggy se as duas conexões estão autorizadas.',
+          wait:'Já existe uma consulta recente. Aguarde dois minutos e tente novamente.',
+          setup:'Confira a configuração da função e do banco no Supabase.',
+          provider:'A Pluggy recusou a consulta. Confira as credenciais e as conexões.',
+          limit:'O volume ultrapassou o limite da prévia. A consulta ficou incompleta.',
         };
-        throw Error(messages[payload?.error] || 'Prévia indisponível. Confira a conexão e a publicação da função bank-preview.');
+        throw Error(messages[payload?.error]||'Prévia indisponível. Confira a conexão e a publicação da função bank-preview.');
       }
-      if (currentSession()!==session) return;
-      rows=data.movements; shown=30;
-      render();
-      const when=new Date(data.fetchedAt).toLocaleString('pt-BR');
-      status.textContent=day(data.from)+' a '+day(data.to)+' · '+rows.length+' movimentações · Consulta em '+when;
-      results.hidden=false;
-    } catch(error) {
-      if(currentSession()===session) status.textContent=error.message;
-    } finally {
-      if(currentSession()===session) button.disabled=false;
-    }
+      if(currentSession()!==session)return;
+      snapshot=data;shown=30;render();renderBills();results.hidden=false;
+      status.textContent=date(data.from)+' a '+date(data.to)+' · '+data.movements.length+' movimentações · Consulta em '+new Date(data.fetchedAt).toLocaleString('pt-BR');
+      if(data.version!==2)status.textContent+=' · Atualize a função bank-preview para guardar o histórico e consultar faturas.';
+      save.disabled=data.version!==2;
+    }catch(error){if(currentSession()===session){snapshot=null;results.hidden=true;list.replaceChildren();renderBills();status.textContent=error.message;}}
+    finally{if(currentSession()===session)button.disabled=false;}
+  });
+  save.addEventListener('click',async()=>{
+    const session=currentSession();
+    if(session===null || snapshot?.version!==2 || save.disabled)return;
+    save.disabled=true;button.disabled=true;
+    try{
+      const {error}=await client.rpc('bolso_finance_archive',{p_fetched_at:snapshot.fetchedAt});
+      if(currentSession()!==session)return;
+      if(error)throw error;
+      status.textContent='Período guardado. Abra Análises e selecione o mês para conferir as categorias.';
+      report.invalidate();
+    }catch{if(currentSession()===session)status.textContent='Não foi possível guardar o período. Confira se o SQL 07 foi aplicado e consulte os bancos novamente.';}
+    finally{if(currentSession()===session){save.disabled=false;button.disabled=false;}}
   });
   return clear;
 }

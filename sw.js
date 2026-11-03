@@ -1,4 +1,4 @@
-const CACHE = 'meu-bolso-pwa-v11-bank-preview';
+const CACHE = 'meu-bolso-pwa-v12-finance';
 const ASSETS = ['./','./index.html','./app.css','./auth.css','./cloud.js','./theme.js','./startup.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(

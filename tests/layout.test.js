@@ -30,13 +30,23 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await context.addInitScript(({user,token})=>{
    if(!localStorage.getItem('meu-bolso-auth'))localStorage.setItem('meu-bolso-auth',JSON.stringify({access_token:token,refresh_token:'fake',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user}));
   },{user,token});
+  let archived=false;
+  const previewRows=[
+    {ref:'a'.repeat(64),bank:'Itaú',account:'Conta',date:date(2),description:'Depósito fictício',direction:'Entrada',currency:'BRL',amount:2500,pending:false},
+    {ref:'b'.repeat(64),bank:'Mercado Pago',account:'Cartão',date:date(3),description:'Supermercado fictício',direction:'Saída',currency:'BRL',amount:85.5,pending:false},
+  ];
   let release;const gate=new Promise(r=>release=r);let first=true;let writes=0;
   await context.route('https://ohfqsuqjhkmlooqvifvf.supabase.co/**',async route=>{
    const path=new URL(route.request().url()).pathname;let body={};
    if(path.endsWith('/auth/v1/user'))body=user;
    else if(path.endsWith('/rpc/bolso_access'))body=true;
+   else if(path.endsWith('/rpc/bolso_finance_period'))body={days:archived?20:0,rows:archived?previewRows:[]};
+   else if(path.endsWith('/rpc/bolso_finance_archive')){archived=true;body=2;}
+   else if(path.endsWith('/rpc/bolso_finance_classify')){
+    const input=route.request().postDataJSON();previewRows.find(r=>r.ref===input.p_ref).chosen=input.p_category;body=null;
+   }
    else if(path.endsWith('/rpc/bolso_read')){if(first){first=false;await gate;}body={document:doc,revision:1};}
-   else if(path.endsWith('/functions/v1/bank-preview'))body={from:'2026-11-01',to:'2026-11-30',fetchedAt:new Date().toISOString(),movements:[{bank:'Itaú',account:'Conta',date:'2026-11-03',description:'Teste de entrada',direction:'Entrada',currency:'BRL',amount:20,pending:false},{bank:'Mercado Pago',account:'Cartão',date:'2026-11-03',description:'Teste de saída',direction:'Saída',currency:'BRL',amount:10,pending:false}]};
+   else if(path.endsWith('/functions/v1/bank-preview'))body={version:2,from:date(1),to:date(30),fetchedAt:new Date().toISOString(),movements:previewRows,bills:[{bank:'Mercado Pago',cardName:'Cartão de teste',dueDate:date(12),amount:400,currency:'BRL'}],billNotes:[]};
    else{writes++;throw Error('Unexpected mutation/API in layout test: '+path);}
    await route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
   });
@@ -64,7 +74,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
    await page.locator('input[name="theme"][value="'+scheme+'"]').check();
    for(const width of [320,390,768,1366]){
     await page.setViewportSize({width,height:900});
-    for(const section of ['overview','expenses','history','settings']){
+    for(const section of ['overview','banks','expenses','history','settings']){
      await page.locator('[data-page="'+section+'"]').click();
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${scheme} ${width} ${section}: horizontal overflow`);
      assert.equal(await page.locator('[data-page="'+section+'"]').getAttribute('aria-current'),'page');
@@ -82,12 +92,30 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.locator('[data-page="settings"]').click();await page.locator('input[name="theme"][value="system"]').check();
   await page.emulateMedia({colorScheme:'light'});assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
-  await page.locator('#bank-load').click();
+  await page.locator('[data-page="banks"]').click();await page.locator('#bank-load').click();
   await page.locator('#bank-results').waitFor({state:'visible'});
   assert.equal(await page.locator('#bank-movements li').count(),2);
   await page.locator('#bank-filter').selectOption('Saída');
   assert.equal(await page.locator('#bank-movements li').count(),1);
-  assert.match(await page.locator('#bank-movements').innerText(),/Teste de saída/);
+  assert.match(await page.locator('#bank-movements').innerText(),/Supermercado fictício/);
+  await page.locator('[data-bank-view="bills"]').click();
+  assert.match(await page.locator('#finance-bills').innerText(),/400,00/);
+  await shot('finance-bills-mobile');
+  await page.locator('[data-bank-view="statement"]').click();
+  await page.locator('#finance-save').click();await page.waitForFunction(()=>document.querySelector('#bank-status').textContent.includes('Período guardado'));
+  await page.locator('[data-page="history"]').click();
+  const category=page.getByRole('combobox',{name:'Categoria de Depósito fictício'});
+  await category.selectOption('salary');
+  await page.waitForFunction(()=>document.querySelector('#finance-origins').textContent.includes('Salário'));
+  assert.match(await page.locator('#finance-spending').innerText(),/85,50/);
+  const exportFile=page.waitForEvent('download');await page.locator('#finance-export').click();
+  const csv=await readFile(await (await exportFile).path(),'utf8');
+  assert.match(csv,/Salário/);assert.match(csv,/Supermercado/);
+  await shot('finance-analysis-mobile');
+  await page.locator('[data-page="overview"]').click();
+  assert.match(await page.locator('#finance-in').innerText(),/2.500,00/);
+  await shot('finance-home-mobile');
+  await page.setViewportSize({width:1366,height:1000});await shot('finance-home-desktop');
   await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'meu-bolso-auth',newValue:null})));
   assert.equal(await page.locator('#bank-movements').textContent(),'');
   assert.equal(writes,0);assert.deepEqual(errors,[]);await context.close();

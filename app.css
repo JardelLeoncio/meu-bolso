@@ -165,3 +165,53 @@ body.modal-open{overflow:hidden}
 #bank-movements{list-style:none;padding:0;margin:12px 0}
 #bank-movements li{padding:12px 0;border-top:1px solid var(--line);display:grid;gap:4px;font-size:13px;overflow-wrap:anywhere}
 #bank-movements small{color:var(--sub)}
+/* Financial workspace */
+.finance-kicker{display:inline-block;font-size:10px;font-weight:750;letter-spacing:1.7px;color:var(--mint)}
+.flow-panel,.bank-banner,.analytics-head{border-radius:var(--radius);border:1px solid var(--line);padding:26px;background:var(--white);margin-bottom:18px}
+.flow-panel{background:linear-gradient(112deg,var(--white) 50%,var(--mint2));border-top:3px solid var(--mint)}
+.flow-panel h2,.analytics-head h2,.bank-banner h2{font-size:clamp(22px,3vw,30px);letter-spacing:-.9px;font-weight:650;line-height:1.2;margin:9px 0 16px}
+.flow-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}
+.flow-values>div{min-width:0;border-left:2px solid var(--bar);padding-left:14px}
+.flow-values>div:first-child{border-color:var(--mint)}.flow-values>div:nth-child(2){border-color:var(--orange)}
+.flow-values span,.flow-values strong{display:block}.flow-values span{font-size:12px;color:var(--sub)}
+.flow-values strong{font-size:clamp(18px,2vw,28px);font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.7px;overflow-wrap:anywhere}
+.flow-panel p,.analytics-head p,.bank-banner p,#bank-status,#finance-bills p{color:var(--sub);font-size:13px}
+.finance-links,.bank-segments{display:flex;gap:8px;flex-wrap:wrap}
+.finance-links button,.bank-segments button{background:var(--soft);color:var(--ink);border:1px solid var(--line);border-radius:12px;font-size:12px;font-weight:650;min-height:44px;padding:8px 15px}
+.bank-banner{display:flex;align-items:center;justify-content:space-between;gap:20px;background:var(--mint2)}
+.bank-banner h2{margin-bottom:6px}.bank-banner p{margin:0}
+.bank-segments{margin:16px 0}.bank-segments button[aria-pressed="true"]{background:var(--navy);color:var(--white);border-color:var(--navy)}
+.bank-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:20px 0}.bank-filters label,.finance-classify>label{display:grid;gap:4px;font-size:12px;color:var(--sub);min-width:0}.bank-filters label:last-child{flex:1;min-width:140px}
+.bank-filters select,.bank-filters input,.finance-classify select{min-height:44px;font-size:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;max-width:100%}
+#bank-filter{font-size:16px}.archive-action{border-top:1px solid var(--line);padding-top:18px;margin-top:16px}
+#finance-bills{display:grid;gap:12px;margin-top:18px;color:var(--sub);font-size:13px}
+#finance-bills article{display:grid;gap:6px;padding:17px;background:var(--soft);border-radius:14px}
+#finance-bills article strong{font-size:22px;color:var(--ink)}#finance-bills article small{color:var(--sub)}
+.analytics-head{background:var(--soft)}.analytics-head p{margin-bottom:0}
+#finance-spending,#finance-origins{margin-top:18px;color:var(--sub);font-size:13px}
+.analysis-row{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:14px 0 0;color:var(--ink)}.analysis-row meter{grid-column:1/-1;width:100%;height:12px;accent-color:var(--mint)}
+.finance-classify,.manual-report{margin-top:18px}.finance-classify>label{margin-top:16px;max-width:230px}
+#finance-classifications{padding:0;list-style:none;font-size:13px;color:var(--sub)}
+#finance-classifications li{display:grid;grid-template-columns:minmax(0,1fr) minmax(155px,auto);align-items:center;gap:5px 12px;border-top:1px solid var(--line);padding:12px 0}
+#finance-classifications strong{color:var(--ink);overflow-wrap:anywhere}
+#finance-classifications small{grid-column:1;overflow-wrap:anywhere}
+#finance-classifications select{grid-column:2;grid-row:1/3;font-size:13px}
+.manual-report>summary{padding:16px;background:var(--white);border:1px solid var(--line);border-radius:14px;cursor:pointer;font-size:14px;font-weight:650}
+@media(max-width:700px){.flow-panel,.bank-banner,.analytics-head{padding:20px}.flow-values{gap:8px}.flow-values>div{padding-left:7px}.flow-values strong{font-size:17px}.flow-values span{font-size:10px}.bank-banner{align-items:start;flex-direction:column}.tab{width:20%;font-size:10px}.finance-classify select{width:100%}#finance-classifications li{grid-template-columns:1fr}#finance-classifications select{grid-column:1;grid-row:auto;font-size:16px}.bank-filters label{flex:1}.bank-filters label:last-child{flex-basis:100%}}
+.flow-panel{background:linear-gradient(112deg,#183e32,#285b47);color:#f4fbf5;border-color:#315c48}
+.flow-panel .finance-kicker{color:#bbdfc8}.flow-panel p,.flow-values span{color:#d0e5d7}
+.flow-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+.flow-values>div:last-child{grid-column:1/-1;grid-row:1;border:0;padding:0 0 10px}
+.flow-values>div:last-child strong{font-size:clamp(32px,4vw,44px);letter-spacing:-1.4px}
+.flow-panel .finance-links button{color:#edf9ee;border-color:#709181;background:#ffffff0c}
+#overview .balance-grid{grid-template-columns:minmax(0,1.65fr) repeat(2,minmax(0,1fr));gap:14px}
+#overview .two-col{display:contents}
+#overview .hero{background:var(--white);border:1px solid var(--line);color:var(--ink);padding:20px}
+#overview .hero:after{display:none}#overview .hero-money{font-size:clamp(25px,2.5vw,33px);margin:8px 0 16px}
+#overview .hero-label,#overview .mini-label{color:var(--sub)}#overview .hero-bottom{border-color:var(--line);gap:20px;padding-top:12px}
+#overview .hero-chip{background:var(--soft);border-color:var(--line);color:var(--sub)}
+#overview .mini-value{font-size:16px}#overview .green{color:var(--mint)}#overview .orange{color:var(--orange)}
+#overview .metric{display:flex;flex-direction:column;justify-content:center}
+button.analysis-row{width:100%;background:none;border:0;text-align:left;padding:6px 0;min-height:44px;font:inherit;color:var(--ink)}
+button.analysis-row:hover{color:var(--mint)}.analytics-head .btn{margin-top:14px}
+@media(max-width:700px){#overview .balance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#overview .hero{grid-column:1/-1}.flow-values{gap:12px}.flow-values span{font-size:12px}.flow-values strong{font-size:19px}}
