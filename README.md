@@ -51,7 +51,7 @@ A verificação local usa somente dados fictícios: temas persistentes, preferê
 
 ## Prévia bancária pessoal
 
-Na aba Bancos → Consultar bancos, o titular pode consultar 30 dias de movimentações. A última prévia fica em uma tabela privada separada das despesas. Ela é reutilizada por 24 horas e substituída após a próxima consulta bem-sucedida. O resultado diferencia entradas, saídas, conta e cartão. A revisão ocorre antes de qualquer incorporação aos lançamentos.
+Na aba Cartões → Atualizar consulta, o titular pode consultar 30 dias de movimentações. A última prévia fica em uma tabela privada separada das despesas. Ela é reutilizada por 24 horas e substituída após a próxima consulta bem-sucedida. O resultado diferencia entradas, saídas, conta e cartão. A revisão ocorre antes de qualquer incorporação aos lançamentos.
 
 Para ativar, cadastre PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_ITAU_ITEM_ID e PLUGGY_MERCADO_PAGO_ITEM_ID em Edge Functions → Secrets. Para este projeto, execute o arquivo local `work/06-previa-bancaria.sql` no SQL Editor. Ele já contém o ID do titular. O arquivo público `supabase/06-previa-bancaria.sql.template` é um modelo para outras instalações.
 
@@ -59,12 +59,22 @@ Crie a Edge Function bank-preview com o conteúdo de supabase/functions/bank-pre
 
 ## Controle financeiro e histórico mensal
 
-O Painel resume entradas, saídas e resultado do dinheiro movimentado nas contas durante os dias guardados do mês selecionado. Contas mantém o planejamento manual, vencimentos e avisos. Análises mostra os gastos identificados por categoria, a origem das entradas e a classificação por movimento. Categorias sugeridas podem ser corrigidas, incluindo salário, refeições, supermercado, combustível, transferências próprias e pagamento de fatura.
+O Painel resume entradas, saídas e resultado do dinheiro movimentado nas contas durante os dias guardados do mês selecionado. Contas mantém o planejamento manual, vencimentos e avisos. O Início reúne o fluxo, os gastos por categoria, a origem das entradas e a classificação por movimento. Categorias sugeridas podem ser corrigidas, incluindo salário, refeições, supermercado, combustível, transferências próprias e pagamento de fatura.
 
-Para ativar em um projeto que já executou o SQL 06, publique a versão atual de `supabase/functions/bank-preview/index.ts` como `bank-preview`, com a mesma configuração e os mesmos quatro segredos. Depois execute `supabase/07-historico-financeiro.sql`. Esse script usa o titular definido no 06. Uma prévia antiga é marcada para atualização. No app, abra Bancos, consulte o extrato e clique em Guardar período no histórico.
+Para ativar em um projeto que já executou o SQL 06, publique a versão atual de `supabase/functions/bank-preview/index.ts` como `bank-preview`, com a mesma configuração e os mesmos quatro segredos. Depois execute `supabase/07-historico-financeiro.sql`. Esse script usa o titular definido no 06. Uma prévia antiga é marcada para atualização. No app, abra Cartões, consulte o extrato e clique em Guardar período no histórico.
 
-Guardar o período registra os 30 dias da prévia. Consultas futuras ampliam o histórico. Salvar a mesma transação atualiza seus dados e mantém a categoria escolhida. Movimentos ausentes em uma consulta posterior que cobre a mesma data ficam marcados e saem dos totais. A consulta mensal informa quantos dias foram cobertos, inclusive períodos sem transações. O CSV financeiro é exportado em Análises. Os backups JSON de Ajustes continuam cobrindo os lançamentos manuais.
+Guardar o período registra os 30 dias da prévia. Consultas futuras ampliam o histórico. Salvar a mesma transação atualiza seus dados e mantém a categoria escolhida. Movimentos ausentes em uma consulta posterior que cobre a mesma data ficam marcados e saem dos totais. A consulta mensal informa quantos dias foram cobertos, inclusive períodos sem transações. O CSV financeiro é exportado no Início, em Classificar movimentos e exportar o mês. Os backups JSON de Ajustes continuam cobrindo os lançamentos manuais.
 
 O fluxo de caixa considera movimentos confirmados de contas bancárias em BRL. Gastos por categoria consideram débitos classificados em contas e cartões, excluindo transferências próprias e pagamentos de fatura identificados. Um Pix sem finalidade conhecida fica para classificação. Pendências, registros ausentes e outras moedas não entram nos totais. A aba Faturas apresenta os valores e vencimentos efetivamente fornecidos pelo banco, sem inferir o saldo em aberto ou o pagamento a partir das compras.
 
 Referências da integração: [transações](https://docs.pluggy.ai/en/docs/products/transactions) e [faturas](https://v2.docs.pluggy.ai/en/reference/bill/bills-list).
+
+## Interface azul
+
+Início mostra saldos disponíveis em reais na última consulta, cofrinhos explicitamente identificados nas reservas bancárias, o total pendente dos lançamentos fixos e variáveis e os gráficos do histórico guardado. O gráfico de fluxo cobre seis meses e usa um traço nos períodos sem dados. O saldo é o informado na consulta, independentemente do mês escolhido para os gráficos.
+
+Cartões reúne extrato de conta e cartão, filtros por instituição e instrumento, faturas e limites informados. No detalhe da fatura é possível vinculá-la a um lançamento do mês ou criar uma despesa variável. A referência bancária impede cadastrar a mesma fatura novamente. O vínculo preserva o valor, vencimento e situação de uma despesa existente. Faturas exibidas só entram na dívida após registro.
+
+Despesas oferece lançamento, edição, filtros de pagamento e de tipo, além dos relatórios manuais. Ajustes agrupa aparência, notificações, sincronização, arquivos e segurança em seções recolhíveis.
+
+Para habilitar os novos campos, atualize a função existente bank-preview usando supabase/functions/bank-preview/index.ts. Uma prévia anterior pode ser reutilizada por até 24 horas. O histórico continua usando o SQL 07. Referência: [campos de contas e limites na Pluggy](https://v2.docs.pluggy.ai/en/docs/products/accounts).

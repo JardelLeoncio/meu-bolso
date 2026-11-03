@@ -39,13 +39,31 @@ function rpc(name: string, body: unknown, key: string, authorization: string) {
 type Movement = {
   bank: string; account: string; direction: string; date: string; description: string;
   currency: string; amount: number; pending: boolean; ref: string;
-  categoryHint: string; operation: string; cardName: string;
+  categoryHint: string; operation: string; cardName: string; accountRef: string;
 };
-type Bill = {bank:string; cardName:string; dueDate:string; amount:number; currency:string};
+type Bill = {ref:string; cardRef:string; bank:string; cardName:string; dueDate:string; amount:number; currency:string};
 async function reference(account:string, id:string) {
   const bytes = new TextEncoder().encode(account+'/'+id);
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
   return Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');
+}
+type Summary = {
+  ref:string; bank:string; type:'BANK'|'CREDIT'; name:string; currency:string;
+  balance:number|null; savings:number|null; limit:number|null; available:number|null;
+};
+const numberOrNull = (v:unknown):number|null => typeof v==='number' && Number.isFinite(v)?v:null;
+function savingsOf(account:{currencyCode?:string; bankData?:{reservedBalances?:Array<{
+  name?:string; availableAmounts?:Array<{amount?:number;currency?:string;currencyCode?:string}>;
+}>}}) {
+  const amounts:number[]=[];
+  for(const pot of account.bankData?.reservedBalances ?? []) {
+    if(!/\b(cofrinhos?|caixinhas?|cofres?)\b/i.test(pot.name ?? '')) continue;
+    for(const entry of pot.availableAmounts ?? []) {
+      if((entry.currencyCode ?? entry.currency ?? account.currencyCode)!==account.currencyCode)continue;
+      if(typeof entry.amount==='number' && Number.isFinite(entry.amount) && entry.amount>=0)amounts.push(entry.amount);
+    }
+  }
+  return amounts.length?amounts.reduce((sum,n)=>sum+Math.round(100*n),0)/100:null;
 }
 async function loadPreview() {
   const sources = [
@@ -65,13 +83,14 @@ async function loadPreview() {
   const from = new Date(Date.parse(to+'T00:00:00Z') - 29*86400000).toISOString().slice(0,10);
   const movements = new Map<string,Movement>();
   const bills = new Map<string,Bill>();
+  const summaries = new Map<string,Summary>();
   const billNotes = new Set<string>();
   const started = Date.now();
   let pages = 0;
   function bounded() {
     if (++pages>40 || Date.now()-started>65000) throw new PreviewError(503,'limit');
   }
-  async function loadBills(bank:string, cardName:string, account:string) {
+  async function loadBills(bank:string, cardName:string, account:string, cardRef:string) {
     let page=1, found=false;
     const cardBills = new Map<string,Bill>();
     try {
@@ -81,7 +100,7 @@ async function loadPreview() {
         if(!Array.isArray(data.results)) throw new Error('Invalid bill list');
         for(const bill of data.results) {
           if(!bill.id || !Number.isFinite(bill.totalAmount) || !bill.dueDate) continue;
-          cardBills.set(account+'/'+bill.id,{bank,cardName,dueDate:String(bill.dueDate).slice(0,10),
+          cardBills.set(account+'/'+bill.id,{ref:await reference(account,String(bill.id)),bank,cardName,cardRef,dueDate:String(bill.dueDate).slice(0,10),
             amount:bill.totalAmount,currency:String(bill.totalAmountCurrencyCode||'')});
           found=true;
         }
@@ -111,7 +130,13 @@ async function loadPreview() {
         if (!['BANK','CREDIT'].includes(account.type)) continue;
         eligibleAccounts++;
         const cardName=account.type==='CREDIT'?String(account.name||'Cartão').slice(0,70):'';
-        if(cardName) await loadBills(bank,cardName,account.id);
+        const accountRef=await reference(account.id,'account');
+        summaries.set(accountRef,{ref:accountRef,bank,type:account.type,
+          name:String(account.name||cardName||'Conta').slice(0,70),currency:String(account.currencyCode||'').slice(0,3),
+          balance:account.type==='BANK'?numberOrNull(account.balance):null,
+          savings:account.type==='BANK'?savingsOf(account):null,
+          limit:numberOrNull(account.creditData?.creditLimit),available:numberOrNull(account.creditData?.availableCreditLimit)});
+        if(cardName) await loadBills(bank,cardName,account.id,accountRef);
         let query = '?'+new URLSearchParams({accountId:account.id,dateFrom:from,dateTo:to});
         while (query) {
           bounded();
@@ -123,7 +148,7 @@ async function loadPreview() {
             const date = String(movement.date).slice(0,10);
             if (date<from || date>to) continue;
             movements.set(account.id+'/'+movement.id,{
-              bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,
+              bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,accountRef,
               ref:await reference(account.id,String(movement.id)),
               categoryHint:String(movement.category||movement.merchant?.category||'').slice(0,100),
               operation:String(movement.operationType||'').slice(0,50),
@@ -144,7 +169,7 @@ async function loadPreview() {
     }
     if (!eligibleAccounts) throw new PreviewError(503,'connection');
   }
-  return {version:2,from,to,fetchedAt,bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].sort((a,b)=>b.date.localeCompare(a.date))};
+  return {version:2,from,to,fetchedAt,accounts:[...summaries.values()],bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].sort((a,b)=>b.date.localeCompare(a.date))};
 }
 Deno.serve(async request=>{
   if (request.method==='OPTIONS') return new Response(null,{status:204,headers});

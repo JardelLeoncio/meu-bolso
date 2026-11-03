@@ -57,9 +57,9 @@ function lock(text) {
   generation++; userId = null; pending = null; revision = 0; busy = false;
   app.clear(); document.body.classList.add('locked'); $('auth-screen').hidden = false;
   $('sync-alert').hidden = true;
-  $('account-email').textContent = ''; $('profile-name').value = '';
+  $('account-email').textContent = '';
   $('profile-password').value = ''; $('profile-password-confirm').value = '';
-  $('profile-message').textContent = ''; $('profile-password-message').textContent = '';
+  $('profile-password-message').textContent = '';
   for (const id of ['login-form','mfa-panel','password-form','retry-access','auth-logout']) $(id).hidden = true;
   $('mfa-setup').hidden = true; $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src');
   $('mfa-code').value = ''; factorId = null; freeze(); message(text);
@@ -92,7 +92,6 @@ async function openAccount(session) {
     app.set(pending.document);
   }
   $('account-email').textContent = session.user.email || 'Minha conta';
-  $('profile-name').value = session.user.user_metadata?.display_name || '';
   void restoreReminders(userId, epoch);
   document.body.classList.remove('locked'); $('auth-screen').hidden = true;
   $('mfa-secret').textContent = ''; $('mfa-qr').removeAttribute('src'); $('mfa-setup').hidden = true;
@@ -298,18 +297,7 @@ $('disable-reminders').addEventListener('click',async()=>{
 setInterval(checkReminders,60000);
 document.addEventListener('visibilitychange',checkReminders);
 $('retry-access').addEventListener('click', continueLogin);
-$('sync-alert-open').addEventListener('click', () => document.querySelector('[data-page="settings"]').click());
-$('profile-form').addEventListener('submit', async e => {
-  e.preventDefault(); if (!userId) return;
-  const epoch = generation, button = e.submitter; button.disabled = true;
-  $('profile-message').textContent = 'Salvando perfil…';
-  try {
-    const { error } = await client.auth.updateUser({ data: { display_name: $('profile-name').value.trim() } });
-    if (epoch !== generation) return;
-    $('profile-message').textContent = error ? 'Não foi possível salvar o perfil. Tente novamente.' : 'Perfil atualizado.';
-  } catch { if (epoch === generation) $('profile-message').textContent = 'Confira a conexão e tente novamente.'; }
-  finally { button.disabled = false; }
-});
+$('sync-alert-open').addEventListener('click', () => {document.querySelector('[data-page="settings"]').click();$('sync-retry').closest('.pref-row').open=true;$('sync-retry').scrollIntoView({block:'center'});});
 $('profile-password-form').addEventListener('submit', async e => {
   e.preventDefault(); if (!userId) return;
   const password = $('profile-password'), confirmation = $('profile-password-confirm');

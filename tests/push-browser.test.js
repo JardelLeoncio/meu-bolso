@@ -40,6 +40,7 @@ test('Navegador push: cadastro confirmado, renovação, falha e desativação',a
    const path=new URL(route.request().url()).pathname;let body={},status=200;
    if(path.endsWith('/auth/v1/user'))body=user;
    else if(path.endsWith('/rpc/bolso_access'))body=true;
+   else if(path.endsWith('/functions/v1/bank-preview'))body={accounts:[],movements:[],version:2,bills:[],from:'2026-11-01',to:'2026-11-30',fetchedAt:new Date().toISOString()};
    else if(path.endsWith('/rpc/bolso_finance_period'))body={days:0,rows:[]};
    else if(path.endsWith('/rpc/bolso_read'))body={document:{version:2,selectedMonth:'2026-11',months:{'2026-11':[{id:'a',name:'Fictícia',amount:1,category:'Outros',type:'variable',status:'pending',dueDate:'2099-01-01'}]}},revision:1};
    else if(path.endsWith('/rpc/bolso_push_subscribe')){
@@ -52,7 +53,7 @@ test('Navegador push: cadastro confirmado, renovação, falha e desativação',a
   await page.goto('http://127.0.0.1:'+server.address().port+'/#due');
   await page.locator('.app-shell').waitFor({state:'visible'});
   assert.equal(await page.locator('#due-panel details').evaluate(e=>e.open),true);
-  await page.locator('[data-page="settings"]').click();
+  await page.locator('[data-page="settings"]').click();await page.getByText('Notificações',{exact:true}).click();
   await page.evaluate(()=>{window.testPermission='denied';});
   await page.locator('#enable-reminders').click();
   await page.waitForFunction(()=>document.querySelector('#reminder-status').textContent==='Permissão não concedida.');assert.equal(subscribed,0);
@@ -66,7 +67,7 @@ test('Navegador push: cadastro confirmado, renovação, falha e desativação',a
   await page.reload();await page.locator('.app-shell').waitFor({state:'visible'});
   await page.waitForFunction(()=>document.querySelector('#reminder-status').textContent.startsWith('Aparelho cadastrado'));
   assert.equal(subscribed,3);
-  await page.locator('[data-page="settings"]').click();await page.locator('#disable-reminders').click();
+  await page.locator('[data-page="settings"]').click();await page.getByText('Notificações',{exact:true}).click();await page.locator('#disable-reminders').click();
   await page.waitForFunction(()=>document.querySelector('#reminder-status').textContent==='Avisos desativados neste aparelho.');
   assert.equal(unsubscribed,1);assert.equal(await page.evaluate(()=>localStorage.getItem('test-sub')),null);
   await page.reload();await page.locator('.app-shell').waitFor({state:'visible'});assert.equal(subscribed,3);

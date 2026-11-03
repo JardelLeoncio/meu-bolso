@@ -7,7 +7,7 @@
  function apply(){
   const dark=preference==='dark'||(preference==='system'&&system.matches);
   root.dataset.theme=dark?'dark':'light';
-  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#101b17':'#f4f6f3';
+  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#101a2c':'#f5f7fc';
   document.querySelectorAll('input[name="theme"]').forEach(input=>{input.checked=input.value===preference;});
  }
  apply();system.addEventListener('change',apply);

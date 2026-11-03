@@ -12,8 +12,36 @@ function breakdown(id, values, empty) {
     const line=document.createElement('button');
     line.type='button';line.className='analysis-row';
     line.addEventListener('click',()=>{
-      const filter=el('finance-category-filter');filter.value=key;filter.dispatchEvent(new Event('change'));
-      filter.focus();filter.scrollIntoView({block:'center'});
+      const trend=el('cash-bars');
+  document.querySelectorAll('[data-chart]').forEach(button=>button.addEventListener('click',()=>{
+    document.querySelectorAll('[data-chart]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    ['chart-flow','chart-1','chart-2'].forEach((id,i)=>{el(id).hidden=i!==Number(button.dataset.chart);});
+  }));
+  async function paintTrend(id, current) {
+    const start=new Date(period+'-01T12:00:00Z');
+    const months=Array.from({length:6},(_,i)=>new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+i-5,1)).toISOString().slice(0,7));
+    const values=await Promise.all(months.map(async month=>{
+      if(month===period)return days?current:null;
+      try{
+        const {data,error}=await client.rpc('bolso_finance_period',{p_month:month});
+        return !error&&data?.days?summarize(data.rows):null;
+      }catch{return null;}
+    }));
+    if(id!==serial || session()!==activeSession)return;
+    const max=Math.max(1,...values.flatMap(v=>v?[v.cashIn,v.cashOut]:[]));
+    trend.replaceChildren();
+    months.forEach((month,i)=>{
+      const col=document.createElement('div'),bars=document.createElement('div'),label=document.createElement('small');
+      bars.className='cash-pair';const v=values[i];
+      if(v)for(const val of [v.cashIn,v.cashOut]){const bar=document.createElement('i');bar.style.height=(100*val/max)+'%';bars.append(bar);}
+      else bars.textContent='—';
+      label.textContent=new Intl.DateTimeFormat('pt-BR',{month:'short',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z')).replace('.','');
+      col.title=v?month+' · Entradas '+money(v.cashIn)+' · Saídas '+money(v.cashOut):month+' · Sem histórico disponível';
+      col.setAttribute('aria-label',col.title);col.append(bars,label);trend.append(col);
+    });
+  }
+  const filter=el('finance-category-filter');filter.value=key;filter.dispatchEvent(new Event('change'));
+      el('analysis-detail').open=true;filter.focus();filter.scrollIntoView({block:'center'});
     });
     const label=document.createElement('span'), amount=document.createElement('strong'), meter=document.createElement('meter');
     label.textContent=categories[key] || categories.review;
@@ -26,6 +54,34 @@ function breakdown(id, values, empty) {
 export function setupFinanceReport(client,session) {
   let period='', page='', activeSession=null, serial=0, loadedAt=0, loading=false;
   let rows=[], days=0, visible=30;
+  const trend=el('cash-bars');
+  document.querySelectorAll('[data-chart]').forEach(button=>button.addEventListener('click',()=>{
+    document.querySelectorAll('[data-chart]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    ['chart-flow','chart-1','chart-2'].forEach((id,i)=>{el(id).hidden=i!==Number(button.dataset.chart);});
+  }));
+  async function paintTrend(id, current) {
+    const start=new Date(period+'-01T12:00:00Z');
+    const months=Array.from({length:6},(_,i)=>new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+i-5,1)).toISOString().slice(0,7));
+    const values=await Promise.all(months.map(async month=>{
+      if(month===period)return days?current:null;
+      try{
+        const {data,error}=await client.rpc('bolso_finance_period',{p_month:month});
+        return !error&&data?.days?summarize(data.rows):null;
+      }catch{return null;}
+    }));
+    if(id!==serial || session()!==activeSession)return;
+    const max=Math.max(1,...values.flatMap(v=>v?[v.cashIn,v.cashOut]:[]));
+    trend.replaceChildren();
+    months.forEach((month,i)=>{
+      const col=document.createElement('div'),bars=document.createElement('div'),label=document.createElement('small');
+      bars.className='cash-pair';const v=values[i];
+      if(v)for(const val of [v.cashIn,v.cashOut]){const bar=document.createElement('i');bar.style.height=(100*val/max)+'%';bars.append(bar);}
+      else bars.textContent='—';
+      label.textContent=new Intl.DateTimeFormat('pt-BR',{month:'short',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z')).replace('.','');
+      col.title=v?month+' · Entradas '+money(v.cashIn)+' · Saídas '+money(v.cashOut):month+' · Sem histórico disponível';
+      col.setAttribute('aria-label',col.title);col.append(bars,label);trend.append(col);
+    });
+  }
   const filter=el('finance-category-filter'), list=el('finance-classifications');
   for(const [key,label] of Object.entries(categories))filter.add(new Option(label,key));
   function status(message){
@@ -72,14 +128,14 @@ export function setupFinanceReport(client,session) {
     breakdown('finance-origins',data.origins,'Ainda não há entradas em conta neste período.');
     renderRows();
     el('finance-export').disabled=rows.length===0;
-    if(!days){status('Para ver este mês, consulte Bancos e guarde o período no histórico.');return;}
+    if(!days){status('Para ver este mês, consulte Cartões e guarde o período no histórico.');return;}
     const totalDays=new Date(Number(period.slice(0,4)),Number(period.slice(5)),0).getDate();
     el('finance-home-status').textContent=days+' de '+totalDays+' dias com extrato guardado. Valores confirmados em reais, sem transferências próprias identificadas.';
     el('finance-report-status').textContent=days+' dias cobertos · '+data.review+' a classificar · '+data.pending+' pendentes · '+data.foreign+' em outras moedas · '+data.absent+' ausentes na última consulta. Os totais consideram movimentos confirmados em BRL.';
   }
   function clear(){
     serial++;activeSession=null;loadedAt=0;loading=false;rows=[];days=0;visible=30;filter.value='';
-    paint();
+    trend.replaceChildren();paint();
   }
   async function refresh(force=false){
     const nowSession=session();
@@ -91,10 +147,10 @@ export function setupFinanceReport(client,session) {
       const {data,error}=await client.rpc('bolso_finance_period',{p_month:month});
       if(id!==serial || session()!==nowSession)return;
       if(error)throw error;
-      rows=data.rows;days=data.days;paint();
+      rows=data.rows;days=data.days;paint();void paintTrend(id,summarize(rows));
     }catch{
       if(id===serial && session()===nowSession){
-        rows=[];days=0;paint();status('Histórico indisponível. Confira a conexão e a ativação do histórico bancário.');
+        rows=[];days=0;trend.replaceChildren();paint();status('Histórico indisponível. Confira a conexão e a ativação do histórico bancário.');
       }
     }finally{if(id===serial){loading=false;loadedAt=Date.now();}}
   }

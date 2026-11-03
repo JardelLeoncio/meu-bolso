@@ -33,7 +33,7 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
       assert.ok([ids(1),ids(2)].includes(item));
       const first=item===ids(1);
       if(!first&&failSecond)return new Response('private upstream message',{status:403});
-      return Response.json({results:[{itemId:item,id:ids(first?3:4),type:first?'BANK':'CREDIT'}],totalPages:1});
+      return Response.json({results:[{itemId:item,id:ids(first?3:4),type:first?'BANK':'CREDIT',currencyCode:'BRL',balance:first?3200:400,bankData:{automaticallyInvestedBalance:3200,reservedBalances:[{name:'Bloqueio judicial',availableAmounts:[{amount:800}]},{name:'Cofrinho viagem',availableAmounts:[{amount:90}]}]},creditData:{creditLimit:2200,availableCreditLimit:1500}}],totalPages:1});
     }
     if(url.pathname==='/bills' && failBills)return new Response('',{status:403});
     if(url.pathname==='/bills')return Response.json({results:[{id:'fake',totalAmount:450.25,dueDate:'2026-12-10',totalAmountCurrencyCode:'BRL'}],totalPages:1});
@@ -54,7 +54,7 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
   assert.doesNotMatch(await failure.text(),/private upstream|Fictícia/);assert.equal(preview,null);
   failSecond=false;
   const result=await handler(request());assert.equal(result.status,200);
-  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
+  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.equal(body.accounts[0].balance,3200);assert.equal(body.accounts[0].savings,90);assert.equal(body.accounts[1].balance,null);assert.equal(body.accounts[1].available,1500);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
   assert.deepEqual(body.movements.map(x=>[x.bank,x.direction,x.account]),[['Itaú','Entrada','Conta'],['Mercado Pago','Saída','Cartão']]);
   assert.doesNotMatch(JSON.stringify(body),/00000000-|test-secret|test-api/);
   const calls=bankCalls;assert.equal((await handler(request())).status,200);assert.equal(bankCalls,calls);
