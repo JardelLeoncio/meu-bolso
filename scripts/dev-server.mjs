@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-const files=new Set(['index.html','app.css','auth.css','cloud.js','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']);
+const files=new Set(['index.html','theme.js','startup.js','app.css','auth.css','cloud.js','sw.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png']);
 const types={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',js:'text/javascript; charset=utf-8',svg:'image/svg+xml',png:'image/png',webmanifest:'application/manifest+json'};
 createServer(async(req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';

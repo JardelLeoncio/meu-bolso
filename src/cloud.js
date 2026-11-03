@@ -349,4 +349,6 @@ client.auth.onAuthStateChange((event, session) => {
   if (userId && session && session.user.id !== userId) { lock('A conta mudou. Entre novamente.'); setTimeout(continueLogin,0); }
 });
 await continueLogin();
+document.body.classList.remove('launching');
+window.dispatchEvent(new Event('bolso-ready'));
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});

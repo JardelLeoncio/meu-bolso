@@ -38,3 +38,13 @@ O envio com o app fechado foi implementado com Web Push, Supabase Edge Functions
 O resumo é agendado para 9h de Brasília, no máximo uma tentativa diária por aparelho, com até cinco aparelhos por conta. Só inclui quantidades e a próxima data, sem nomes ou valores. Não envia se não há pendências com data válida. O cadastro exige MFA, conta autorizada e sessão válida; sair ou revogar a sessão interrompe novos envios dessa sessão. Ao entrar novamente, o app tenta renovar o cadastro previamente consentido.
 
 Testes locais cobrem datas, permissões, reserva diária e recebimento simulado pelo service worker. A entrega real com o iPhone fechado depende da ativação no Supabase e de um teste no aparelho. Permissão, conexão, foco do iOS e disponibilidade do serviço podem atrasar ou impedir a entrega. Não é um alarme com horário garantido nem substitui conferir os vencimentos. A data do painel usa o calendário do aparelho; o resumo diário usa Brasília.
+
+## Interface e aparência
+
+O aplicativo tem temas Claro, Escuro e Sistema em Ajustes → Aparência. A preferência fica em `meu-bolso-theme`, no armazenamento local de cada aparelho; não altera o documento financeiro nem a sessão. O tema Sistema acompanha a preferência do dispositivo, inclusive quando ela muda com o app aberto.
+
+A abertura mostra somente o ícone enquanto a conta é verificada. Uma sessão válida abre o painel diretamente; login, MFA e recuperação mantêm suas telas quando necessários. Após 12 segundos sem conclusão, a abertura oferece tentar novamente, preservando a sessão. Não há atraso artificial para exibir a marca.
+
+A navegação usa menu lateral no computador e barra inferior no celular. Ajustes reúne perfil e aparência, notificações e sincronização, backups/exportação e segurança. Importação em lote e exclusão ficam em seções recolhíveis. As operações financeiras, datas, autorização e serviço de notificações continuam usando os fluxos existentes; esta atualização não requer SQL.
+
+A verificação local usa somente dados fictícios: temas persistentes, preferência do sistema, abertura com e sem sessão, modal por teclado e telas de 320, 390, 768 e 1366 pixels. A aparência e o teclado do Safari devem ser conferidos no iPhone real após publicar.

@@ -9,7 +9,7 @@ import {chromium} from '@playwright/test';
 test('Navegador push: cadastro confirmado, renovação, falha e desativação',async()=>{
  const key=createECDH('prime256v1');key.generateKeys();
  const bundle=await build({entryPoints:[new URL('../src/cloud.js',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1')],bundle:true,write:false,format:'esm',platform:'browser',plugins:[{name:'test-public-key',setup(b){b.onLoad({filter:/config\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replace("export const PUSH_PUBLIC_KEY = '';",`export const PUSH_PUBLIC_KEY = '${key.getPublicKey().toString('base64url')}';`),loader:'js'}));}}]});
- const allow=new Set(['index.html','cloud.js','app.css','auth.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+ const allow=new Set(['index.html','theme.js','startup.js','cloud.js','app.css','auth.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
  const server=createServer(async(req,res)=>{
   const file=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';
   if(!allow.has(file)){res.writeHead(404);res.end();return;}

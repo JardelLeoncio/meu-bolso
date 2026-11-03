@@ -1,5 +1,5 @@
-const CACHE = 'meu-bolso-pwa-v9-push';
-const ASSETS = ['./','./index.html','./app.css','./auth.css','./cloud.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const CACHE = 'meu-bolso-pwa-v10-design';
+const ASSETS = ['./','./index.html','./app.css','./auth.css','./cloud.js','./theme.js','./startup.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const allowed = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(
   caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())

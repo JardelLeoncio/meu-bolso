@@ -5,7 +5,7 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', async () => {
-  const allow=new Set(['index.html','cloud.js','app.css','auth.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest','sw.js']);
+  const allow=new Set(['index.html','theme.js','startup.js','cloud.js','app.css','auth.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest','sw.js']);
   const server=createServer(async(req,res)=>{
     const path=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';
     if(!allow.has(path)){res.writeHead(404);res.end();return;}
