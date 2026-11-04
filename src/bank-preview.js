@@ -11,12 +11,12 @@ const amount=(value,currency)=>/^[A-Z]{3}$/.test(currency)
 
 export function setupBankPreview(client,currentSession) {
   const report=setupFinanceReport(client,currentSession);
-  const button=el('bank-load'),status=el('bank-status'), save=el('finance-save');
+  const status=el('bank-status');
   const list=el('bank-movements'),results=el('bank-results');
   const more=el('bank-more'),filter=el('bank-filter'),institution=el('bank-institution'),search=el('bank-search');
-  let snapshot=null,shown=30,visibleDays=7,controller,attempted=null,lastAttempt=0,archived=null;
+  let snapshot=null,shown=30,visibleDays=7,controller,attempted=null,lastAttempt=0,archived=null,loading=false;
   const kind=el('account-kind'), account=el('account-ref');
-  const wallet=setupWallet(()=>button.click());
+  const wallet=setupWallet();
   function populateAccounts(){
     const old=account.value;
     account.replaceChildren(new Option('Todos',''));
@@ -72,15 +72,15 @@ export function setupBankPreview(client,currentSession) {
   more.addEventListener('click',()=>{shown+=30;visibleDays+=7;render();});
   function clear(){
     controller?.abort();snapshot=null;attempted=null;lastAttempt=0;archived=null;kind.value='';populateAccounts();wallet(null,'');shown=30;filter.value='';institution.value='';search.value='';
-    list.replaceChildren();status.textContent='';results.hidden=true;button.disabled=false;save.disabled=true;
+    list.replaceChildren();status.textContent='';results.hidden=true;loading=false;
     document.querySelectorAll('[data-bank]').forEach(b=>b.setAttribute('aria-pressed',String(!b.dataset.bank)));pane('statement');renderBills();report.clear();
   }
   clear();
-  button.addEventListener('click',async()=>{
+  async function refresh(){
     const session=currentSession();
-    if(session===null || button.disabled)return;
+    if(session===null || loading)return;
     attempted=session;lastAttempt=Date.now();wallet(snapshot,'Consultando saldo…');
-    controller=new AbortController();button.disabled=true;save.disabled=true;status.textContent='Consultando os bancos…';
+    controller=new AbortController();loading=true;status.textContent='Consultando os bancos…';
     try{
       const {data,error}=await client.functions.invoke('bank-preview',{body:{},signal:controller.signal});
       if(error){
@@ -99,7 +99,6 @@ export function setupBankPreview(client,currentSession) {
       snapshot=data;wallet(data);populateAccounts();shown=30;visibleDays=7;render();renderBills();results.hidden=false;
       status.textContent=date(data.from)+' a '+date(data.to)+' · '+data.movements.length+' movimentações · Consulta em '+new Date(data.fetchedAt).toLocaleString('pt-BR');
       if(data.version!==2)status.textContent+=' · Atualize a função bank-preview para guardar o histórico e consultar faturas.';
-      save.disabled=data.version!==2;
       if(data.version===2 && archived!==data.fetchedAt){
         const {error:archiveError}=await client.rpc('bolso_finance_archive',{p_fetched_at:data.fetchedAt});
         if(currentSession()!==session)return;
@@ -107,26 +106,13 @@ export function setupBankPreview(client,currentSession) {
         else {archived=data.fetchedAt;report.invalidate();}
       }
     }catch(error){if(currentSession()===session){snapshot=null;wallet(null,'Saldo indisponível. Tentaremos novamente automaticamente.');populateAccounts();results.hidden=true;list.replaceChildren();renderBills();status.textContent=error.message;}}
-    finally{if(currentSession()===session)button.disabled=false;}
-  });
-  save.addEventListener('click',async()=>{
-    const session=currentSession();
-    if(session===null || snapshot?.version!==2 || save.disabled)return;
-    save.disabled=true;button.disabled=true;
-    try{
-      const {error}=await client.rpc('bolso_finance_archive',{p_fetched_at:snapshot.fetchedAt});
-      if(currentSession()!==session)return;
-      if(error)throw error;
-      status.textContent='Período guardado. Abra Início e selecione o mês para conferir as categorias.';
-      report.invalidate();
-    }catch{if(currentSession()===session)status.textContent='Não foi possível guardar o período. Confira se o SQL 07 foi aplicado e consulte os bancos novamente.';}
-    finally{if(currentSession()===session){save.disabled=false;button.disabled=false;}}
-  });
+    finally{if(currentSession()===session)loading=false;}
+  }
   document.addEventListener('finance-view',({detail})=>{
     const session=currentSession();
     if(session!==null && ['overview','banks'].includes(detail.page))autoRefresh();
   });
-  function autoRefresh(){if(document.visibilityState!=='hidden' && currentSession()!==null && (attempted!==currentSession() || Date.now()-lastAttempt>=300000))button.click();}
+  function autoRefresh(){if(document.visibilityState!=='hidden' && currentSession()!==null && (attempted!==currentSession() || Date.now()-lastAttempt>=300000))void refresh();}
   setInterval(autoRefresh,30000);
   document.addEventListener('visibilitychange',autoRefresh);
   window.addEventListener('online',autoRefresh);

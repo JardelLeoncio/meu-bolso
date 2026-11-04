@@ -12,34 +12,6 @@ function breakdown(id, values, empty) {
     const line=document.createElement('button');
     line.type='button';line.className='analysis-row';
     line.addEventListener('click',()=>{
-      const trend=el('cash-bars');
-  document.querySelectorAll('[data-chart]').forEach(button=>button.addEventListener('click',()=>{
-    document.querySelectorAll('[data-chart]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
-    ['chart-flow','chart-1','chart-2'].forEach((id,i)=>{el(id).hidden=i!==Number(button.dataset.chart);});
-  }));
-  async function paintTrend(id, current) {
-    const start=new Date(period+'-01T12:00:00Z');
-    const months=Array.from({length:6},(_,i)=>new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+i-5,1)).toISOString().slice(0,7));
-    const values=await Promise.all(months.map(async month=>{
-      if(month===period)return days?current:null;
-      try{
-        const {data,error}=await client.rpc('bolso_finance_period',{p_month:month});
-        return !error&&data?.days?summarize(data.rows):null;
-      }catch{return null;}
-    }));
-    if(id!==serial || session()!==activeSession)return;
-    const max=Math.max(1,...values.flatMap(v=>v?[v.cashIn,v.cashOut]:[]));
-    trend.replaceChildren();
-    months.forEach((month,i)=>{
-      const col=document.createElement('div'),bars=document.createElement('div'),label=document.createElement('small');
-      bars.className='cash-pair';const v=values[i];
-      if(v)for(const val of [v.cashIn,v.cashOut]){const bar=document.createElement('i');bar.style.height=(100*val/max)+'%';bars.append(bar);}
-      else bars.textContent='—';
-      label.textContent=new Intl.DateTimeFormat('pt-BR',{month:'short',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z')).replace('.','');
-      col.title=v?month+' · Entradas '+money(v.cashIn)+' · Saídas '+money(v.cashOut):month+' · Sem histórico disponível';
-      col.setAttribute('aria-label',col.title);col.append(bars,label);trend.append(col);
-    });
-  }
   const filter=el('finance-category-filter');filter.value=key;filter.dispatchEvent(new Event('change'));
       el('analysis-detail').open=true;filter.focus();filter.scrollIntoView({block:'center'});
     });
@@ -139,7 +111,7 @@ export function setupFinanceReport(client,session) {
   }
   async function refresh(force=false){
     const nowSession=session();
-    if(nowSession===null || !period || !['overview','history'].includes(page))return;
+    if(nowSession===null || !period || page!=='overview')return;
     if(!force && (loading || Date.now()-loadedAt<60000))return;
     const id=++serial, month=period;loading=true;
     if(!loadedAt)status('Carregando o histórico financeiro…');

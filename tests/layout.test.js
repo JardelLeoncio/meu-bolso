@@ -109,7 +109,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.locator('[data-bank=""]').click();
   await shot('finance-bills-mobile');
   await page.locator('[data-bank-view="statement"]').click();
-  assert.equal(archived,true);assert.equal(await page.locator('#finance-save').isVisible(),false);assert.equal(await page.locator('#overview .manual-report').count(),1);assert.equal(await page.locator('#expenses .manual-report').count(),0);
+  assert.equal(archived,true);assert.equal(await page.locator('#finance-save, #bank-load, #wallet-refresh').count(),0);assert.equal(await page.locator('#overview .manual-report').count(),1);assert.equal(await page.locator('#expenses .manual-report').count(),0);
   await page.locator('[data-page="overview"]').click();await page.locator('#analysis-detail > summary').click();
   const category=page.getByRole('combobox',{name:'Categoria de Depósito fictício'});
   await category.selectOption('salary');
@@ -149,7 +149,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   assert.equal(bankWrites,2);
   const refreshed=page.waitForResponse(r=>r.url().includes('/functions/v1/bank-preview'));
   await page.evaluate(()=>{const now=Date.now;Date.now=()=>now()+310000;window.dispatchEvent(new Event('focus'));});
-  await refreshed;await page.waitForFunction(()=>!document.querySelector('#bank-load').disabled);
+  await refreshed;await page.waitForFunction(()=>document.querySelector('#bank-status').textContent.includes('Consulta em'));
   assert.match(await page.locator('#bank-movements').textContent(),/Supermercado/);
 
   await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'meu-bolso-auth',newValue:null})));

@@ -169,7 +169,7 @@ body.modal-open{overflow:hidden}
 .bank-segments{margin:16px 0}.bank-segments button[aria-pressed="true"]{background:var(--navy);color:var(--white);border-color:var(--navy)}
 .bank-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:20px 0}.bank-filters label,.finance-classify>label{display:grid;gap:4px;font-size:12px;color:var(--sub);min-width:0}.bank-filters label:last-child{flex:1;min-width:140px}
 .bank-filters select,.bank-filters input,.finance-classify select{min-height:44px;font-size:16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;max-width:100%}
-#bank-filter{font-size:16px}.archive-action{border-top:1px solid var(--line);padding-top:18px;margin-top:16px}
+#bank-filter{font-size:16px}
 #finance-bills{display:grid;gap:12px;margin-top:18px;color:var(--sub);font-size:13px}
 #finance-bills article{display:grid;gap:6px;padding:17px;background:var(--soft);border-radius:14px}
 #finance-bills article strong{font-size:22px;color:var(--ink)}#finance-bills article small{color:var(--sub)}
@@ -204,14 +204,13 @@ button.analysis-row:hover{color:var(--mint)}.analytics-head .btn{margin-top:14px
 
 .blue-wallet{position:relative;isolation:isolate;overflow:hidden;padding:22px 24px;border-radius:22px;background:linear-gradient(108deg,#102952,#244b97);color:#fff}
 .blue-wallet:after,.plastic-card:after{content:"";position:absolute;z-index:-1;width:180px;height:180px;right:-85px;top:-120px;border:1px solid #ffffff26;border-radius:50%;box-shadow:0 0 0 22px #ffffff0a,0 0 0 45px #ffffff08,0 0 0 68px #ffffff05;pointer-events:none}
-.wallet-top,.debt-pair,.expense-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.wallet-top,.expense-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .wallet-top>span,.label-mini{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase}
 .wallet-top>span{color:#cadcff}#wallet-eye{display:grid;place-items:center;background:transparent;color:white;width:44px;height:38px}
 #available-total{display:block;font-size:clamp(32px,5vw,46px);letter-spacing:-1.5px;line-height:1.2;margin:4px 0 12px}
 #available-banks{display:flex;flex-wrap:wrap;gap:9px 18px;color:#d4e4ff;font-size:13px}
 #pot-line{display:flex;align-items:center;gap:9px;border-top:1px solid #ffffff30;margin-top:14px;padding-top:12px;color:#deebff;font-size:13px}#pot-total{margin-left:auto}
-#wallet-status{display:block;color:#cfddf6;font-size:11px;margin:12px 0 4px}.wallet-refresh{border:0;background:none;color:#edf4ff;text-decoration:underline;padding:4px 0;min-height:32px;font-size:12px}
-.debt-panel,.movement-panel,#analysis-detail,#due-panel{margin:14px 0 0}.debt-panel .legend-chip:before{display:none}#debt-total,#expense-open-total{display:block;font-size:27px;font-weight:700;letter-spacing:-.9px;margin:5px 0 12px}.debt-panel .track{background:var(--bar)}.debt-pair{margin-top:8px;font-size:12px;color:var(--sub)}.debt-pair b{color:var(--ink)}
+#wallet-status{display:block;color:#cfddf6;font-size:11px;margin:12px 0 4px}.movement-panel,#analysis-detail,#due-panel{margin:14px 0 0}#expense-open-total{display:block;font-size:27px;font-weight:700;letter-spacing:-.9px;margin:5px 0 12px}
 .blue-segments{display:flex;gap:3px;border-radius:12px;background:var(--soft);padding:4px;margin:12px 0}
 .blue-segments button{color:var(--sub);border-radius:9px;background:none;border:0;min-height:40px;padding:6px 8px;flex:1;font-weight:600;font-size:13px}.blue-segments button[aria-pressed=true]{background:var(--white);color:var(--mint);box-shadow:0 2px 5px #10295210}
 .movement-panel>.panel{padding:8px 0;border:0}.movement-panel .flow-values{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}.movement-panel .flow-values>div{order:0;flex:1;padding:0 0 0 8px;border:0;border-left:2px solid var(--bar)}.movement-panel .flow-values span{color:var(--sub)}.movement-panel .flow-values>div strong{font-size:16px;color:var(--ink);letter-spacing:-.3px}
@@ -222,17 +221,16 @@ button.analysis-row:hover{color:var(--mint)}.analytics-head .btn{margin-top:14px
 .bank-select{display:flex;align-items:center;gap:12px;color:var(--sub);font-size:12px;margin:14px 0}.bank-select select{min-height:42px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--white);color:var(--ink)}
 #bills-pane{padding:0;background:none;border:none}#bills-pane>.panel-sub{margin-bottom:12px}
 #finance-bills{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr));gap:9px}#finance-bills>.plastic-card{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(120deg,#2349ba,#426cdf);color:white;display:grid;align-content:start;gap:7px;min-height:140px}#finance-bills>.plastic-card.mp{background:linear-gradient(110deg,#19395c,#346c92)}#finance-bills .plastic-card strong{font-size:23px;color:#fff}#finance-bills .plastic-card small,#finance-bills .plastic-card p{color:#e0ebff}.plastic-card details{font-size:12px}.plastic-card summary{cursor:pointer}#limits-list article{background:var(--soft);border-radius:14px;padding:14px;margin-top:10px}#limits-list p{font-size:13px}
-.expense-toolbar{margin-bottom:12px}.expense-toolbar .btn{flex:none}.expense-filters{flex-wrap:wrap}.expense-filters button{flex:1 1 auto}.expense-toolbar .label-mini{color:var(--sub)}#expenses .manual-report{margin-top:20px}#expenses .balance-grid{margin-top:16px}
+.expense-toolbar{margin-bottom:12px}.expense-toolbar .btn{flex:none}.expense-filters{flex-wrap:wrap}.expense-filters button{flex:1 1 auto}.expense-toolbar .label-mini{color:var(--sub)}
 .pref-group{margin:18px 0 22px}.pref-group h2{color:var(--sub);font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;margin:0 0 8px}.pref-row{background:var(--white);border:1px solid var(--line);border-top:0;padding:0 16px}.pref-row:first-of-type{border-top:1px solid var(--line);border-radius:15px 15px 0 0}.pref-row:last-child{border-radius:0 0 15px 15px}.pref-row>summary{min-height:52px;list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:14px}.pref-row>summary::-webkit-details-marker{display:none}.pref-row>summary svg{box-sizing:content-box;padding:7px;border-radius:9px;background:var(--soft);color:var(--mint);width:17px;height:17px}.pref-row>summary span{margin-left:auto;color:var(--sub);font-size:20px}.pref-row[open]>summary span{transform:rotate(90deg)}.pref-row .settings-item{border:0;border-radius:0;padding:4px 0 18px}
-@media(max-width:700px){.blue-wallet{padding:18px}.debt-pair{font-size:11px}.tab{width:25%}.intro{margin-bottom:14px}.brandrow{margin-bottom:18px}.movement-panel .flow-values>div strong{font-size:14px}#finance-bills{grid-template-columns:repeat(2,minmax(0,1fr))}#finance-bills>p{grid-column:1/-1}#finance-bills article{padding:12px}#finance-bills .plastic-card strong{font-size:20px}}
+@media(max-width:700px){.blue-wallet{padding:18px}.tab{width:25%}.intro{margin-bottom:14px}.brandrow{margin-bottom:18px}.movement-panel .flow-values>div strong{font-size:14px}#finance-bills{grid-template-columns:repeat(2,minmax(0,1fr))}#finance-bills>p{grid-column:1/-1}#finance-bills article{padding:12px}#finance-bills .plastic-card strong{font-size:20px}}
 .bank-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 .bank-filters label,.bank-filters select,.bank-filters input{min-width:0;width:100%}
 .bank-filters label:last-child{min-width:0}
 @media(max-width:440px){.bank-filters label:nth-child(2),.bank-filters label:last-child{grid-column:1/-1}.bank-filters label:nth-child(2){grid-row:2}}
 #wallet-eye{border:0;border-radius:10px}
 .bank-chips{display:flex;gap:7px;margin:9px 0}.bank-chips button{background:var(--white);color:var(--sub);border:1px solid var(--line);border-radius:20px;padding:7px 13px;font-size:12px;min-height:40px}
-.bank-chips button[aria-pressed=true]{background:var(--navy);color:var(--white);border-color:var(--navy)}
-.bank-select:has(+.bank-chips){display:none}#banks>#bank-load{min-height:36px}#bank-status{font-size:11px;margin:8px 0}
+.bank-chips button[aria-pressed=true]{background:var(--navy);color:var(--white);border-color:var(--navy)}#bank-status{font-size:11px;margin:8px 0}
 #bills-pane>h3,#bills-pane>.panel-sub{font-size:12px}
 .plastic-card select,.plastic-card button{width:100%;min-width:0;max-width:100%;margin-top:8px;font-size:13px;border:0;border-radius:8px;padding:8px}
 #profile-shortcut{border-radius:50%;width:44px;padding:0;justify-content:center}#profile-shortcut span{display:none}

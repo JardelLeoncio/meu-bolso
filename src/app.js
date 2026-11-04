@@ -58,7 +58,7 @@ $('f-status').addEventListener('change',()=>{
   $('f-paid-date').value=paid?($('f-paid-date').value||localDate()):'';
 });
 function renderDue() {
-  const list=dueItems(state).filter(x=>x.days<=3), overdue=list.filter(x=>x.days<0), upcoming=list.filter(x=>x.days>=0);
+  const list=dueItems(state), overdue=list.filter(x=>x.days<0), upcoming=list.filter(x=>x.days>=0);
   const nextText=upcoming.length?`${upcoming.length} ${upcoming.length===1?'conta próxima':'contas próximas'} · ${upcoming[0].days===0?'hoje':upcoming[0].days===1?'amanhã':'em '+upcoming[0].days+' dias'}`:'';
   $('due-summary').textContent=[nextText,overdue.length?`${overdue.length} ${overdue.length===1?'atrasada':'atrasadas'}`:''].filter(Boolean).join(' · ');
   $('due-panel').hidden=list.length===0;

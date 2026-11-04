@@ -1,7 +1,7 @@
 const el=id=>document.getElementById(id);
 const brl=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 const valid=Number.isFinite;
-export function setupWallet(refresh) {
+export function setupWallet() {
   let accounts=null, concealed=false;
   const sum=values=>values.reduce((n,v)=>n+Math.round(v*100),0)/100;
   function render(){
@@ -22,7 +22,6 @@ export function setupWallet(refresh) {
     el('wallet-eye').setAttribute('aria-label',concealed?'Mostrar valores do saldo':'Ocultar valores do saldo');
   }
   el('wallet-eye').addEventListener('click',()=>{concealed=!concealed;render();});
-  el('wallet-refresh').addEventListener('click',refresh);
   return (data,message)=>{
     accounts=data?.accounts || null;render();
     el('wallet-status').textContent=message || (accounts?'Consulta em '+new Date(data.fetchedAt).toLocaleString('pt-BR'):'Saldos ainda não informados nesta consulta.');
