@@ -51,7 +51,7 @@ A verificação local usa somente dados fictícios: temas persistentes, preferê
 
 ## Prévia bancária pessoal
 
-Na aba Cartões → Atualizar consulta, o titular pode consultar 30 dias de movimentações. A última prévia fica em uma tabela privada separada das despesas. Ela é reutilizada por 24 horas e substituída após a próxima consulta bem-sucedida. O resultado diferencia entradas, saídas, conta e cartão. A revisão ocorre antes de qualquer incorporação aos lançamentos.
+A consulta ocorre ao entrar e a cada cinco minutos com o app visível. A integração consulta 30 dias de movimentações; o extrato mostra inicialmente sete dias, incluindo hoje, e Ver mais revela as demais da prévia. A última prévia fica em uma tabela privada separada das despesas. Após aplicar o SQL 08, ela é reutilizada por cinco minutos e substituída após a próxima consulta bem-sucedida. O resultado diferencia entradas, saídas, conta e cartão. A revisão ocorre antes de qualquer incorporação aos lançamentos.
 
 Para ativar, cadastre PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_ITAU_ITEM_ID e PLUGGY_MERCADO_PAGO_ITEM_ID em Edge Functions → Secrets. Para este projeto, execute o arquivo local `work/06-previa-bancaria.sql` no SQL Editor. Ele já contém o ID do titular. O arquivo público `supabase/06-previa-bancaria.sql.template` é um modelo para outras instalações.
 
@@ -63,7 +63,7 @@ O Painel resume entradas, saídas e resultado do dinheiro movimentado nas contas
 
 Para ativar em um projeto que já executou o SQL 06, publique a versão atual de `supabase/functions/bank-preview/index.ts` como `bank-preview`, com a mesma configuração e os mesmos quatro segredos. Depois execute `supabase/07-historico-financeiro.sql`. Esse script usa o titular definido no 06. Uma prévia antiga é marcada para atualização. No app, abra Cartões, consulte o extrato e clique em Guardar período no histórico.
 
-Guardar o período registra os 30 dias da prévia. Consultas futuras ampliam o histórico. Salvar a mesma transação atualiza seus dados e mantém a categoria escolhida. Movimentos ausentes em uma consulta posterior que cobre a mesma data ficam marcados e saem dos totais. A consulta mensal informa quantos dias foram cobertos, inclusive períodos sem transações. O CSV financeiro é exportado no Início, em Classificar movimentos e exportar o mês. Os backups JSON de Ajustes continuam cobrindo os lançamentos manuais.
+O aplicativo registra automaticamente os 30 dias da prévia no histórico financeiro após cada consulta nova. Consultas futuras ampliam o histórico. Salvar a mesma transação atualiza seus dados e mantém a categoria escolhida. Movimentos ausentes em uma consulta posterior que cobre a mesma data ficam marcados e saem dos totais. A consulta mensal informa quantos dias foram cobertos, inclusive períodos sem transações. O CSV financeiro é exportado no Início, em Classificar movimentos e exportar o mês. Os backups JSON de Ajustes continuam cobrindo os lançamentos manuais.
 
 O fluxo de caixa considera movimentos confirmados de contas bancárias em BRL. Gastos por categoria consideram débitos classificados em contas e cartões, excluindo transferências próprias e pagamentos de fatura identificados. Um Pix sem finalidade conhecida fica para classificação. Pendências, registros ausentes e outras moedas não entram nos totais. A aba Faturas apresenta os valores e vencimentos efetivamente fornecidos pelo banco, sem inferir o saldo em aberto ou o pagamento a partir das compras.
 
@@ -77,4 +77,9 @@ Cartões reúne extrato de conta e cartão, filtros por instituição e instrume
 
 Despesas oferece lançamento, edição, filtros de pagamento e de tipo, além dos relatórios manuais. Ajustes agrupa aparência, notificações, sincronização, arquivos e segurança em seções recolhíveis.
 
-Para habilitar os novos campos, atualize a função existente bank-preview usando supabase/functions/bank-preview/index.ts. Uma prévia anterior pode ser reutilizada por até 24 horas. O histórico continua usando o SQL 07. Referência: [campos de contas e limites na Pluggy](https://v2.docs.pluggy.ai/en/docs/products/accounts).
+Para habilitar os novos campos, atualize a função existente bank-preview usando supabase/functions/bank-preview/index.ts. Aplique também supabase/08-atualizacao-automatica.sql para reduzir o cache de 24 horas a cinco minutos. O histórico continua usando o SQL 07. Referência: [campos de contas e limites na Pluggy](https://v2.docs.pluggy.ai/en/docs/products/accounts).
+
+## Radar e histórico de despesas
+O histórico manual foi movido inteiro para o Início. O radar mostra contas pendentes vencidas ou com vencimento até três dias à frente. Tocar em uma conta abre Despesas no mês correto sem abrir o editor. As notificações push existentes mantêm seu agendamento.
+
+A consulta automática busca os dados já disponibilizados pela Pluggy; não força uma atualização do banco e não garante tempo real. Opera apenas com uma sessão autenticada e a página visível. Os gráficos usam o SQL 07 e preservam categorias e referências para evitar duplicações. Falhas voltam a ser tentadas no próximo ciclo. Não há consulta automática quando o app está fechado.

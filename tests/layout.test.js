@@ -32,8 +32,8 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   },{user,token});
   let archived=false;
   const previewRows=[
-    {ref:'a'.repeat(64),bank:'Itaú',account:'Conta',date:date(2),description:'Depósito fictício',direction:'Entrada',currency:'BRL',amount:2500,pending:false},
-    {ref:'b'.repeat(64),accountRef:'card',bank:'Mercado Pago',account:'Cartão',date:date(3),description:'Supermercado fictício',direction:'Saída',currency:'BRL',amount:85.5,pending:false},
+    {ref:'a'.repeat(64),bank:'Itaú',account:'Conta',date:date(d.getDate()),description:'Depósito fictício',direction:'Entrada',currency:'BRL',amount:2500,pending:false},
+    {ref:'b'.repeat(64),accountRef:'card',bank:'Mercado Pago',account:'Cartão',date:date(d.getDate()),description:'Supermercado fictício',direction:'Saída',currency:'BRL',amount:85.5,pending:false},
   ];
   let release;const gate=new Promise(r=>release=r);let first=true;let writes=0,bankWrites=0;
   await context.route('https://ohfqsuqjhkmlooqvifvf.supabase.co/**',async route=>{
@@ -96,7 +96,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.locator('[data-page="settings"]').click();await page.locator('input[name="theme"][value="system"]').check();
   await page.emulateMedia({colorScheme:'light'});assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
   await page.emulateMedia({colorScheme:'dark'});await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
-  await page.locator('[data-page="banks"]').click();await page.locator('#bank-load').click();
+  await page.locator('[data-page="banks"]').click();await page.locator('#bank-results').waitFor({state:'visible'});await page.locator('.statement-filters > summary').click();
   await page.locator('#bank-results').waitFor({state:'visible'});
   assert.equal(await page.locator('#bank-movements li').count(),2);
   await page.locator('#bank-filter').selectOption('Saída');
@@ -105,11 +105,11 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.locator('[data-bank-view="limits"]').click();
   assert.match(await page.locator('#finance-bills').innerText(),/400,00/);
   assert.match(await page.locator('#limits-list').innerText(),/2.800,00/);
-  await page.locator('[data-bank="Itaú"]').click();assert.equal(await page.locator('#finance-bills article').count(),0);
+  await page.locator('[data-bank-view="statement"]').click();await page.locator('[data-bank="Itaú"]').click();assert.equal(await page.locator('#finance-bills article').count(),0);
   await page.locator('[data-bank=""]').click();
   await shot('finance-bills-mobile');
   await page.locator('[data-bank-view="statement"]').click();
-  await page.locator('#finance-save').click();await page.waitForFunction(()=>document.querySelector('#bank-status').textContent.includes('Período guardado'));
+  assert.equal(archived,true);assert.equal(await page.locator('#finance-save').isVisible(),false);assert.equal(await page.locator('#overview .manual-report').count(),1);assert.equal(await page.locator('#expenses .manual-report').count(),0);
   await page.locator('[data-page="overview"]').click();await page.locator('#analysis-detail > summary').click();
   const category=page.getByRole('combobox',{name:'Categoria de Depósito fictício'});
   await category.selectOption('salary');
@@ -137,7 +137,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   const linked=page.locator('[data-toggle="bill-'+ 'd'.repeat(64)+'"]');await linked.click();
   await page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
   await page.locator('[data-page="overview"]').click();
-  assert.equal(await page.locator('#debt-total').innerText(), await page.evaluate(()=>{
+  assert.equal(await page.locator('#hero-pending').textContent(), await page.evaluate(()=>{
     const v=window.Bolso.get();
     const sum=v.months[v.selectedMonth].filter(x=>x.status==='pending').reduce((a,x)=>a+x.amount,0);
     return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(sum);
@@ -147,6 +147,11 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await page.getByText('Vinculada em Despesas',{exact:true}).waitFor({state:'visible'});
   assert.equal(await page.locator('#finance-bills select').count(),0);
   assert.equal(bankWrites,2);
+  const refreshed=page.waitForResponse(r=>r.url().includes('/functions/v1/bank-preview'));
+  await page.evaluate(()=>{const now=Date.now;Date.now=()=>now()+310000;window.dispatchEvent(new Event('focus'));});
+  await refreshed;await page.waitForFunction(()=>!document.querySelector('#bank-load').disabled);
+  assert.match(await page.locator('#bank-movements').textContent(),/Supermercado/);
+
   await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'meu-bolso-auth',newValue:null})));
   assert.equal(await page.locator('#bank-movements').textContent(),'');
   assert.equal(writes,0);assert.deepEqual(errors,[]);await context.close();

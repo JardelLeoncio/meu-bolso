@@ -128,7 +128,7 @@ export function setupFinanceReport(client,session) {
     breakdown('finance-origins',data.origins,'Ainda não há entradas em conta neste período.');
     renderRows();
     el('finance-export').disabled=rows.length===0;
-    if(!days){status('Para ver este mês, consulte Cartões e guarde o período no histórico.');return;}
+    if(!days){status('Aguardando a sincronização automática deste período.');return;}
     const totalDays=new Date(Number(period.slice(0,4)),Number(period.slice(5)),0).getDate();
     el('finance-home-status').textContent=days+' de '+totalDays+' dias com extrato guardado. Valores confirmados em reais, sem transferências próprias identificadas.';
     el('finance-report-status').textContent=days+' dias cobertos · '+data.review+' a classificar · '+data.pending+' pendentes · '+data.foreign+' em outras moedas · '+data.absent+' ausentes na última consulta. Os totais consideram movimentos confirmados em BRL.';

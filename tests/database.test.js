@@ -53,6 +53,7 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     await db.exec('create role service_role');
     const bank=(await readFile(new URL('../supabase/06-previa-bancaria.sql.template',import.meta.url),'utf8')).replaceAll('__OWNER_UUID__',a);
     await db.exec(bank);await db.exec(bank);
+    const automatic=await readFile(new URL('../supabase/08-atualizacao-automatica.sql',import.meta.url),'utf8');await db.exec(automatic);await db.exec(automatic);
     const access='select public.bolso_bank_preview_access($1) as slot';
     const finish='select public.bolso_bank_preview_finish($1,$2::jsonb)';
     for(const [role,id,aal] of [['anon',null,null],['authenticated',a,'aal1'],['authenticated',b,'aal2']]) {
@@ -68,6 +69,9 @@ test('Banco: login, MFA, isolamento, validação e conflitos de gravação', asy
     assert.deepEqual((await act('authenticated',a,'aal2',access,[true])).rows[0].slot,{preview:sample});
     await assert.rejects(act('authenticated',b,'aal2',access,[false]),e=>e.code==='42501');
     await assert.rejects(act('service_role',null,null,finish,[ticket,sample]));
+    await db.exec('reset role');
+    await db.exec("update bolso_private.bank_preview set refreshed_at=now()-interval '6 minutes',reserved_at=now()-interval '6 minutes'");
+    assert.ok((await act('authenticated',a,'aal2',access,[true])).rows[0].slot.ticket);
     await db.exec('reset role');
     const finance=await readFile(new URL('../supabase/07-historico-financeiro.sql',import.meta.url),'utf8');
     await db.exec(finance);await db.exec(finance);

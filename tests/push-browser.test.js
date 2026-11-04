@@ -41,8 +41,9 @@ test('Navegador push: cadastro confirmado, renovação, falha e desativação',a
    if(path.endsWith('/auth/v1/user'))body=user;
    else if(path.endsWith('/rpc/bolso_access'))body=true;
    else if(path.endsWith('/functions/v1/bank-preview'))body={accounts:[],movements:[],version:2,bills:[],from:'2026-11-01',to:'2026-11-30',fetchedAt:new Date().toISOString()};
+   else if(path.endsWith('/rpc/bolso_finance_archive'))body=0;
    else if(path.endsWith('/rpc/bolso_finance_period'))body={days:0,rows:[]};
-   else if(path.endsWith('/rpc/bolso_read'))body={document:{version:2,selectedMonth:'2026-11',months:{'2026-11':[{id:'a',name:'Fictícia',amount:1,category:'Outros',type:'variable',status:'pending',dueDate:'2099-01-01'}]}},revision:1};
+   else if(path.endsWith('/rpc/bolso_read'))body={document:{version:2,selectedMonth:'2026-11',months:{'2026-11':[{id:'a',name:'Fictícia',amount:1,category:'Outros',type:'variable',status:'pending',dueDate:new Date().toLocaleDateString('sv-SE')}]}},revision:1};
    else if(path.endsWith('/rpc/bolso_push_subscribe')){
     subscribed++;assert.equal(route.request().postDataJSON().p_subscription.endpoint,'https://web.push.apple.com/test-browser');
     if(fail){status=403;body={code:'42501'};}

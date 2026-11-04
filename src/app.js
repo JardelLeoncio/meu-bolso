@@ -19,14 +19,7 @@ const $=(id)=>document.getElementById(id);const monthItems=()=>state.months[stat
 function persist(){window.Bolso.commit(validateData(state));}
 function calc(items){const total=items.reduce((s,x)=>s+x.amount,0),paid=items.filter(x=>x.status==='paid').reduce((s,x)=>s+x.amount,0),pending=items.filter(x=>x.status==='pending').reduce((s,x)=>s+x.amount,0),unknown=items.filter(x=>x.status==='unknown').reduce((s,x)=>s+x.amount,0);return{total,paid,pending,unknown,fixed:items.filter(x=>x.type==='fixed').reduce((s,x)=>s+x.amount,0),variable:items.filter(x=>x.type==='variable').reduce((s,x)=>s+x.amount,0)}}
 function paintBars(keys,large){const vals=keys.map(key=>calc(state.months[key]||[]).total);const max=Math.max(...vals,1);const cols=keys.map((key,i)=>{const pct=vals[i]/max*100;const height=Math.max(2,pct*.79);const isActive=key===state.selectedMonth;return`<div class="chart-col ${isActive?'selected':''}"><div class="chart-bar ${isActive?'active':''} ${!vals[i]?'empty':''}" style="height:${height}%" title="${monthText(key)}: ${euro(vals[i])}"><div class="chart-money">${vals[i]===0?'':large?euro(vals[i]):'R$ '+plain(vals[i])}</div></div><div class="chart-label">${safe(shortMonth(key))}<br>${key.slice(2,4)}</div></div>`}).join('');return`<div class="chart-bars" style="height:${large?220:180}px;${large?'min-width:'+Math.max(280,keys.length*105)+'px':''}">${cols}</div>`}
-function updateDebt(items) {
-  const due=calc(items.filter(item=>item.status==='pending'));
-  $('debt-total').textContent=$('expense-open-total').textContent=euro(due.total);
-  $('debt-fixed').textContent=euro(due.fixed);$('debt-variable').textContent=euro(due.variable);
-  $('debt-bar').style.width=(due.total?due.fixed/due.total*100:0)+'%';
-  $('debt-note').textContent='Lançamentos pendentes do mês. Registre cada fatura uma vez em Despesas.'+
-    (items.some(item=>item.status==='unknown')?' Há lançamentos com situação não informada.':'');
-}
+function updateDebt(items){$('expense-open-total').textContent=euro(calc(items.filter(x=>x.status==='pending')).total);}
 function overview(){const arr=monthItems(),v=calc(arr);updateDebt(arr);$('hero-total').textContent=euro(v.total);$('hero-paid').textContent=euro(v.paid);$('hero-pending').textContent=euro(v.pending);$('hero-unknown').textContent=euro(v.unknown);$('hero-unknown-box').hidden=v.unknown<.005;$('hero-chip').textContent=arr.length+' '+(arr.length===1?'conta':'contas');$('sum-fixed').textContent=euro(v.fixed);$('sum-variable').textContent=euro(v.variable);const f=arr.filter(x=>x.type==='fixed').length,vr=arr.filter(x=>x.type==='variable').length;$('count-fixed').textContent=f+' '+(f===1?'despesa cadastrada':'despesas cadastradas');$('count-variable').textContent=vr+' '+(vr===1?'despesa cadastrada':'despesas cadastradas');const keys=Array.from({length:6},(_,i)=>monthShift(state.selectedMonth,i-5));$('bar-chart').innerHTML=paintBars(keys,false);const pct=v.total?Math.round(v.paid/v.total*100):0,knownPct=v.total?100-v.unknown/v.total*100:100;$('payment-pct').textContent=pct+'%';$('payment-donut').style.setProperty('--paid-pct',v.total?v.paid/v.total*100+'%':'0%');$('payment-donut').style.setProperty('--known-pct',knownPct+'%');$('payment-paid').textContent=euro(v.paid);$('payment-pending').textContent=euro(v.pending);$('payment-unknown').textContent=euro(v.unknown);$('unknown-payment-row').hidden=v.unknown<.005;$('payment-tip').textContent=v.total===0?'Comece adicionando uma despesa.':v.unknown>.005?'Existe uma conta sem situação de pagamento informada.':v.pending<.005?'Tudo pago neste mês. Excelente!':'Marque suas contas como pagas na aba Despesas.';const cat={};for(const item of arr)cat[item.category||'Outros']=(cat[item.category||'Outros']||0)+item.amount;const sorted=Object.entries(cat).sort((a,b)=>b[1]-a[1]);$('category-chart').innerHTML=sorted.length?sorted.map(([category,amount],i)=>`<div class="category-row"><div class="category-label"><span>${safe(category)}</span><strong>${euro(amount)}</strong></div><div class="track"><div class="fill alt${i%5}" style="width:${v.total?amount/v.total*100:0}%"></div></div></div>`).join(''):'<div class="tiny-note">Ainda não há categorias neste mês.</div>'}
 let expenseFilter=0;
 const expenseMatches=item=>[true,item.status==='pending',item.status==='paid',item.type==='fixed',item.type==='variable'][expenseFilter];
@@ -65,18 +58,17 @@ $('f-status').addEventListener('change',()=>{
   $('f-paid-date').value=paid?($('f-paid-date').value||localDate()):'';
 });
 function renderDue() {
-  const list=dueItems(state), overdue=list.filter(x=>x.days<0), upcoming=list.filter(x=>x.days>=0);
-  const nextText=upcoming.length?`${upcoming.length} ${upcoming.length===1?'conta vence':'contas vencem'} ${upcoming[0].days===0?'hoje':'em '+displayDate(upcoming[0].dueDate)}.`:'Nenhum próximo vencimento cadastrado.';
-  const lateText=overdue.length?`${overdue.length} ${overdue.length===1?'conta atrasada':'contas atrasadas'}.`:'Nenhuma conta atrasada.';
-  $('due-summary').textContent=nextText+' '+lateText;
+  const list=dueItems(state).filter(x=>x.days<=3), overdue=list.filter(x=>x.days<0), upcoming=list.filter(x=>x.days>=0);
+  const nextText=upcoming.length?`${upcoming.length} ${upcoming.length===1?'conta próxima':'contas próximas'} · ${upcoming[0].days===0?'hoje':upcoming[0].days===1?'amanhã':'em '+upcoming[0].days+' dias'}`:'';
+  $('due-summary').textContent=[nextText,overdue.length?`${overdue.length} ${overdue.length===1?'atrasada':'atrasadas'}`:''].filter(Boolean).join(' · ');
   $('due-panel').hidden=list.length===0;
   if(dueRequested && list.length){$('due-panel').querySelector('details').open=true;dueRequested=false;}
   $('due-list').innerHTML=list.map(x=>`<button type="button" class="due-entry" data-due-month="${x.month}" data-due-id="${safe(x.id)}"><span><strong>${safe(x.name)}</strong><small>${displayDate(x.dueDate)} • ${x.days<0?'Atrasada há '+(-x.days)+' dia(s)':x.days===0?'Vence hoje':'Vence em '+x.days+' dia(s)'}</small></span><strong>${euro(x.amount)}</strong></button>`).join('');
 }
 $('due-list').addEventListener('click',e=>{
  const button=e.target.closest('[data-due-id]');if(!button)return;
- state.selectedMonth=button.dataset.dueMonth;currentPage='expenses';render();
- const item=monthItems().find(x=>x.id===button.dataset.dueId);if(item)openModal(item);
+ state.selectedMonth=button.dataset.dueMonth;expenseFilter=0;document.querySelectorAll('[data-expense-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.expenseFilter==='0')));currentPage='expenses';render();
+ const target=[...document.querySelectorAll('[data-edit]')].find(x=>x.dataset.edit===button.dataset.dueId)?.closest('.expense');target?.scrollIntoView({behavior:'smooth',block:'center'});target?.classList.add('radar-target');setTimeout(()=>target?.classList.remove('radar-target'),2500);
 });
 navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='OPEN_DUE'){currentPage='overview';render();$('due-panel').querySelector('details').open=true;window.scrollTo({top:0});}});
 const settingsIcon=document.querySelector('[data-page="settings"] svg');if(settingsIcon)settingsIcon.innerHTML='<path d="M4 7h16M4 17h16"></path><circle cx="9" cy="7" r="2.5"></circle><circle cx="16" cy="17" r="2.5"></circle>';

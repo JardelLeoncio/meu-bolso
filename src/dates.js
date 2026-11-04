@@ -18,6 +18,5 @@ export function dueItems(document,today=localDate()) {
     .filter(x=>x.status==='pending' && validDate(x.dueDate))
     .map(x=>({...x,month,days:Math.round((Date.parse(x.dueDate+'T00:00:00Z')-start)/86400000)})))
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)||a.name.localeCompare(b.name));
-  const next=items.find(x=>x.days>=0)?.dueDate;
-  return items.filter(x=>x.days<0 || x.dueDate===next);
+  return items.filter(x=>x.days<=3);
 }

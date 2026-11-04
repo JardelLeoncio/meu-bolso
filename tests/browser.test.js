@@ -49,6 +49,7 @@ test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', 
       else if(path.endsWith('/verify')){testUser.factors=user.factors;body={access_token:jwt('aal2'),refresh_token:'fake',token_type:'bearer',expires_in:3600,user:testUser};}
       else if(path.endsWith('/rpc/bolso_access'))body=allowed;
       else if(path.endsWith('/functions/v1/bank-preview'))body={accounts:[],movements:[],version:2,bills:[],from:'2026-11-01',to:'2026-11-30',fetchedAt:new Date().toISOString()};
+   else if(path.endsWith('/rpc/bolso_finance_archive'))body=0;
    else if(path.endsWith('/rpc/bolso_finance_period'))body={days:0,rows:[]};
    else if(path.endsWith('/rpc/bolso_read')){queries++;body={document:remote,revision:rev};}
       else if(path.endsWith('/rpc/bolso_save')){
@@ -84,11 +85,11 @@ test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', 
     assert.equal(s.queries,0);assert.equal(await s.page.locator('.app-shell').isVisible(),false);await s.context.close();
     s=await setup('aal2');await s.page.locator('.app-shell').waitFor({state:'visible'});
     await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
-    assert.equal((await s.page.locator('#hero-total').innerText()).replace(/\s/g,' '),'R$ 123,45');
+    assert.equal((await s.page.locator('#hero-total').textContent()).replace(/\s/g,' '),'R$ 123,45');
     await s.page.locator('[data-page="expenses"]').click();await s.page.locator('#add-button').click();await s.page.locator('#f-name').fill('Nova fictícia');await s.page.locator('#f-amount').fill('25,50');
     await s.page.locator('#expense-form button[type="submit"]').click();
     await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');assert.equal(s.writes,1);
-    await s.page.reload();await s.page.locator('.app-shell').waitFor({state:'visible'});assert.equal((await s.page.locator('#hero-total').innerText()).replace(/\s/g,' '),'R$ 148,95');
+    await s.page.reload();await s.page.locator('.app-shell').waitFor({state:'visible'});assert.equal((await s.page.locator('#hero-total').textContent()).replace(/\s/g,' '),'R$ 148,95');
     s.conflict();await s.page.locator('#month-next').click();
     await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent.includes('Outro aparelho'));
     assert.equal(await s.page.locator('#overview').evaluate(e=>e.inert),true);
@@ -157,7 +158,7 @@ test('Navegador: acesso, MFA, gravação, conflito, logout e histórico local', 
     await s.page.locator('[data-page="expenses"]').click();await s.page.locator('#add-button').click();await s.page.locator('#f-name').fill('Conta com vencimento');await s.page.locator('#f-amount').fill('10');await s.page.locator('#f-due-date').fill(today);
     await s.page.locator('#expense-form button[type="submit"]').click();await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
     await s.page.locator('[data-page="overview"]').click();await s.page.locator('#due-panel').waitFor({state:'visible'});assert.match(await s.page.locator('#due-summary').innerText(),/1 conta/);
-    await s.page.locator('#due-panel summary').click();await s.page.locator('.due-entry').click();
+    await s.page.locator('#due-panel summary').click();await s.page.locator('.due-entry').click();assert.equal(await s.page.locator('#modal-overlay').evaluate(e=>e.classList.contains('open')),false);await s.page.getByRole('button',{name:'Editar Conta com vencimento',exact:true}).click();
     await s.page.locator('#f-status').selectOption('paid');assert.equal(await s.page.locator('#f-paid-date').inputValue(),today);
     await s.page.locator('#f-paid-date').fill('2026-10-20');await s.page.locator('#expense-form button[type="submit"]').click();await s.page.waitForFunction(()=>document.querySelector('#sync-status').textContent==='Sincronizado');
     await s.page.reload();await s.page.locator('.app-shell').waitFor({state:'visible'});
