@@ -103,7 +103,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   assert.equal(await page.locator('#bank-movements li').count(),1);
   assert.match(await page.locator('#bank-movements').innerText(),/Supermercado fictício/);
   await page.locator('[data-bank-view="limits"]').click();
-  assert.match(await page.locator('#finance-bills article > strong').innerText(),/278,13/);
+  assert.match(await page.locator('#finance-bills article > strong').innerText(),/85,50/);
   await page.getByText('Faturas fechadas',{exact:true}).click();
   assert.match(await page.locator('#finance-bills').innerText(),/400,00/);
   assert.match(await page.locator('#limits-list').innerText(),/2.800,00/);
@@ -130,7 +130,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   await shot('finance-home-mobile');
   await page.setViewportSize({width:1366,height:1000});await shot('finance-home-desktop');
   await page.locator('[data-page="banks"]').click();
-  await page.locator('#finance-bills article > details').evaluate(e=>e.open=true);
+  await page.locator('#finance-bills article > details').filter({has:page.getByText('Faturas fechadas',{exact:true})}).evaluate(e=>e.open=true);
   await page.locator('#finance-bills summary').filter({hasText:'Vincular em Despesas'}).click();
   await page.getByRole('combobox',{name:'Lançamento para esta fatura'}).selectOption('!new');
   await page.locator('#finance-bills button').filter({hasText:'Confirmar'}).click();
@@ -147,7 +147,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   }));
   await page.reload();await page.locator('.app-shell').waitFor({state:'visible'});
   await page.locator('[data-page="banks"]').click();
-  await page.locator('#finance-bills article > details').evaluate(e=>e.open=true);
+  await page.locator('#finance-bills article > details').filter({has:page.getByText('Faturas fechadas',{exact:true})}).evaluate(e=>e.open=true);
   await page.getByText('Vinculada em Despesas',{exact:true}).waitFor({state:'visible'});
   assert.equal(await page.locator('#finance-bills select').count(),0);
   assert.equal(bankWrites,2);

@@ -1,3 +1,4 @@
+import {categoryFor} from './finance.js';
 const el=id=>document.getElementById(id);
 const brl=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
 const valid=Number.isFinite;
@@ -88,6 +89,22 @@ function openBill(card, closedBills, movements, today) {
   return period ? {amount:totals.get(period)/100, period, due, estimated:true} : null;
 }
 
+export function monthCardActivity(snapshot, card, today) {
+  const first = today.slice(0,7)+'-01';
+  const rows = [...(snapshot.earlierCardRows || []), ...(snapshot.movements || [])]
+    .filter(row => row.account === 'Cartão' && row.accountRef === card.ref && row.date >= first && row.date <= today && categoryFor(row) !== 'bill')
+    .sort((a,b) => b.date.localeCompare(a.date));
+  const totals = new Map();
+  for (const row of rows) {
+    if (!valid(row.amount) || !['Entrada','Saída'].includes(row.direction) || !row.currency) continue;
+    const sums = totals.get(row.currency) || {posted:0, pending:0, credits:0};
+    const field = row.direction === 'Entrada' ? 'credits' : row.pending ? 'pending' : 'posted';
+    sums[field] += Math.round(row.amount * 100);
+    totals.set(row.currency, sums);
+  }
+  return {rows, totals, complete:(snapshot.cardFrom || snapshot.from) <= first && snapshot.to >= today};
+}
+
 export function renderCredit(snapshot, bank, accountRef, format) {
   const bills=el('finance-bills'),limits=el('limits-list');
   bills.replaceChildren();limits.replaceChildren();
@@ -108,14 +125,35 @@ export function renderCredit(snapshot, bank, accountRef, format) {
     const tile=document.createElement('article');
     tile.className='plastic-card'+(card.bank==='Mercado Pago'?' mp':'');
     const name=document.createElement('b'),label=document.createElement('small'),value=document.createElement('strong'),due=document.createElement('small');
-    name.textContent=card.bank+' · '+card.name;label.textContent='Fatura atual';
-    value.textContent=current ? format(current.amount,card.currency) : '—';
-    if (!current) due.textContent='Valor em aberto ainda indisponível.';
-    else if (current.estimated) {
-      const [year, month]=current.period.split('-');
-      due.textContent=`Estimativa parcial · ${month}/${year} · lançamentos disponíveis`;
-    } else due.textContent=current.due ? 'Vencimento em '+date(current.due) : 'Saldo da fatura informado pelo banco';
+    name.textContent=card.bank+' · '+card.name;
+    const month=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(today+'T12:00:00Z'));
+    label.textContent='Gastos de '+month;
+    const activity=monthCardActivity(snapshot,card,today);
+    const amounts=[...activity.totals];
+    const gross=amounts.map(([currency,sums])=>format((sums.posted+sums.pending)/100,currency));
+    value.textContent=gross.join(' + ') || (activity.complete && card.currency ? format(0,card.currency) : '—');
+    due.textContent=amounts.map(([currency,sums])=>{
+      const parts=[format(sums.posted/100,currency)+' confirmados',format(sums.pending/100,currency)+' pendentes'];
+      if(sums.credits) parts.push(format(sums.credits/100,currency)+' em créditos');
+      return parts.join(' · ');
+    }).join(' / ');
     tile.append(name,label,value,due);
+    if(!activity.complete){const note=document.createElement('small');note.textContent='Cobertura parcial do mês';tile.append(note);}
+    if(activity.rows.length){
+      const details=document.createElement('details'),summary=document.createElement('summary');
+      summary.textContent=`Lançamentos do mês (${activity.rows.length})`;details.append(summary);
+      for(const row of activity.rows){
+        const entry=document.createElement('p');
+        entry.textContent=[date(row.date),row.description,format(row.amount,row.currency),row.direction==='Entrada'?'Crédito':row.direction,row.pending?'Pendente':'Confirmado'].join(' · ');
+        details.append(entry);
+      }
+      tile.append(details);
+    }
+    if(current){
+      const balance=document.createElement('small');
+      balance.textContent=(current.estimated?'Estimativa parcial da fatura':'Fatura em aberto')+' · '+format(current.amount,card.currency);
+      tile.append(balance);
+    }
     if(rows.length){
       const details=document.createElement('details'),summary=document.createElement('summary');
       summary.textContent='Faturas fechadas';details.append(summary);

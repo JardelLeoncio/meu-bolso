@@ -81,6 +81,9 @@ async function loadPreview() {
   const fetchedAt = new Date().toISOString();
   const to = new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(new Date(fetchedAt));
   const from = new Date(Date.parse(to+'T00:00:00Z') - 29*86400000).toISOString().slice(0,10);
+  // On the 31st, include day one for the card dashboard. The archive RPC accepts exactly 30 days.
+  const monthStart = to.slice(0,7)+'-01';
+  const queryFrom = from < monthStart ? from : monthStart;
   const movements = new Map<string,Movement>();
   const bills = new Map<string,Bill>();
   const summaries = new Map<string,Summary>();
@@ -139,7 +142,7 @@ async function loadPreview() {
           savings:account.type==='BANK'?savingsOf(account):null,
           limit:numberOrNull(account.creditData?.creditLimit),available:numberOrNull(account.creditData?.availableCreditLimit)});
         if(cardName) await loadBills(bank,cardName,account.id,accountRef);
-        let query = '?'+new URLSearchParams({accountId:account.id,dateFrom:from,dateTo:to});
+        let query = '?'+new URLSearchParams({accountId:account.id,dateFrom:account.type==='CREDIT'?queryFrom:from,dateTo:to});
         while (query) {
           bounded();
           const result = await get('/v2/transactions'+query);
@@ -148,7 +151,7 @@ async function loadPreview() {
             if (!movement.id || (movement.accountId!=null && movement.accountId!==account.id) || !Number.isFinite(movement.amount))
               throw new PreviewError(503,'provider');
             const date = String(movement.date).slice(0,10);
-            if (date<from || date>to) continue;
+            if (date<(cardName?queryFrom:from) || date>to) continue;
             movements.set(account.id+'/'+movement.id,{
               bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,accountRef,
               ...(cardName && !movement.creditCardMetadata?.billId && /^\d{4}-(0[1-9]|1[0-2])$/.test(movement.creditCardMetadata?.billForecastDate ?? '')
@@ -173,7 +176,7 @@ async function loadPreview() {
     }
     if (!eligibleAccounts) throw new PreviewError(503,'connection');
   }
-  return {version:2,from,to,fetchedAt,accounts:[...summaries.values()],bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].sort((a,b)=>b.date.localeCompare(a.date))};
+  return {version:2,from,to,fetchedAt,cardFrom:queryFrom,earlierCardRows:[...movements.values()].filter(row=>row.date<from),accounts:[...summaries.values()],bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].filter(row=>row.date>=from).sort((a,b)=>b.date.localeCompare(a.date))};
 }
 Deno.serve(async request=>{
   if (request.method==='OPTIONS') return new Response(null,{status:204,headers});
