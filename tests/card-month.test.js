@@ -20,12 +20,12 @@ test('Gastos mensais incluem o primeiro e o último dia e acompanham a confirma�
 });
 
 import {openBill} from '../src/bank-overview.js';
-test('A fatura considera só a parcela do ciclo e respeita o total do emissor',()=>{
+test('A fatura considera só a parcela do ciclo mesmo com saldo acumulado no cartão',()=>{
   const card={ref:'card',currency:'BRL',openDueDate:'2026-12-05'};
   const purchase={accountRef:'card',billPeriod:'2026-12',currency:'BRL',direction:'Saída',amount:45};
   const rows=[purchase,{...purchase,installment:'3/10',amount:120},{...purchase,direction:'Entrada',amount:5},
     {...purchase,operation:'PAGAMENTO_FATURA',amount:400},{...purchase,billPeriod:'2027-01',amount:120}];
   const estimate=openBill(card,[],rows,'2026-11-16');
   assert.equal(estimate.amount,160);assert.equal(estimate.items.length,3);assert.equal(estimate.estimated,true);
-  assert.equal(openBill({...card,openBalance:175},[],rows,'2026-11-16').amount,175);
+  assert.equal(openBill({...card,openBalance:175},[],rows,'2026-11-16').amount,160);
 });

@@ -33,7 +33,7 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   let archived=false,openBalance=278.13;
   const previewRows=[
     {ref:'a'.repeat(64),bank:'Itaú',account:'Conta',date:date(d.getDate()),description:'Depósito fictício',direction:'Entrada',currency:'BRL',amount:2500,pending:false},
-    {ref:'b'.repeat(64),accountRef:'card',bank:'Mercado Pago',account:'Cartão',date:date(d.getDate()),description:'Supermercado fictício',direction:'Saída',currency:'BRL',amount:85.5,pending:false},
+    {ref:'b'.repeat(64),accountRef:'card',billPeriod:monthKey(1),bank:'Mercado Pago',account:'Cartão',date:date(d.getDate()),description:'Supermercado fictício',direction:'Saída',currency:'BRL',amount:85.5,pending:false},
   ];
   let release;const gate=new Promise(r=>release=r);let first=true;let writes=0,bankWrites=0;
   await context.route('https://ohfqsuqjhkmlooqvifvf.supabase.co/**',async route=>{
@@ -103,11 +103,14 @@ test('Interface: abertura, temas persistentes, responsividade e navegação por 
   assert.equal(await page.locator('#bank-movements li').count(),1);
   assert.match(await page.locator('#bank-movements').innerText(),/Supermercado fictício/);
   await page.locator('[data-bank-view="limits"]').click();
-  assert.match(await page.locator('#finance-bills article > strong').innerText(),/278,13/);
+  assert.match(await page.locator('#finance-bills article > strong').innerText(),/85,50/);
   assert.match(await page.locator('#limits-list').innerText(),/2.800,00/);
   await page.locator('[data-bank-view=monthly]').click();
   assert.match(await page.locator('#monthly-list').innerText(),/85,50/);
   await page.locator('[data-bank-view=closed]').click();
+  await page.getByLabel('Banco da fatura').selectOption('Itaú');
+  assert.equal(await page.locator('#closed-list article').count(),0);
+  await page.getByLabel('Banco da fatura').selectOption('Mercado Pago');
   assert.match(await page.locator('#closed-list').innerText(),/400,00/);
   await page.locator('[data-bank-view="statement"]').click();await page.locator('[data-bank="Itaú"]').click();assert.equal(await page.locator('#finance-bills article').count(),0);
   await page.locator('[data-bank=""]').click();

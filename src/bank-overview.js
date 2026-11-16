@@ -1,3 +1,4 @@
+import {movementRow} from './movement-row.js';
 import {categoryFor} from './finance.js';
 const el=id=>document.getElementById(id);
 const brl=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n);
@@ -90,7 +91,6 @@ export function openBill(card, closedBills, movements, today) {
   }
   const period = [...totals.keys()].sort()[0];
   const items=itemsByPeriod.get(period) || [];
-  if (valid(card.openBalance)) return {amount:card.openBalance, period, due, items, estimated:false};
   return period ? {amount:totals.get(period)/100, period, due, items, estimated:true} : null;
 }
 
@@ -112,9 +112,9 @@ export function monthCardActivity(snapshot, card, today) {
 
 export function renderCredit(snapshot, bank, accountRef, format) {
   const bills=el('finance-bills'),limits=el('limits-list');
-  const monthly=el('monthly-list'), closed=el('closed-list');
-  for(const host of [bills,limits,monthly,closed]) host.replaceChildren();
-  if(!snapshot){bills.textContent=limits.textContent=monthly.textContent=closed.textContent='Consulte os bancos para ver os dados disponíveis.';return;}
+  const monthly=el('monthly-list');
+  for(const host of [bills,limits,monthly]) host.replaceChildren();
+  if(!snapshot){bills.textContent=limits.textContent=monthly.textContent='Consulte os bancos para ver os dados disponíveis.';return;}
   const matches=b=>(!bank||b.bank===bank)&&(!accountRef||b.ref===accountRef||b.cardRef===accountRef);
   const accounts=(snapshot.accounts||[]).filter(a=>a.type==='CREDIT'&&matches(a));
   const availableBills=(snapshot.bills||[]).filter(matches);
@@ -136,7 +136,7 @@ export function renderCredit(snapshot, bank, accountRef, format) {
     const month=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(today+'T12:00:00Z'));
     label.textContent='Fatura em andamento';
     value.textContent=current ? format(current.amount,card.currency) : '—';
-    due.textContent=current ? (current.estimated?'Estimativa parcial':'Total informado pelo banco') : 'Aguardando informações do ciclo';
+    due.textContent=current ? 'Estimativa parcial do ciclo' : 'Aguardando informações do ciclo';
     if(current?.due) due.textContent+=' · Vence em '+date(current.due);
     else if(current?.period) due.textContent+=' · '+current.period.split('-').reverse().join('/');
     tile.append(name,label,value,due);
@@ -162,20 +162,11 @@ export function renderCredit(snapshot, bank, accountRef, format) {
     if(!activity.complete || !activity.rows.length){
       const note=document.createElement('small');note.textContent=activity.complete?'Nenhum lançamento no mês.':'Cobertura parcial do mês';group.append(note);
     }
-    for(const row of activity.rows){
-      const entry=document.createElement('p');entry.textContent=[date(row.date),row.description,row.installment?'Parcela '+row.installment:'',format(row.amount,row.currency),row.direction,row.pending?'Pendente':'Confirmado'].filter(Boolean).join(' · ');group.append(entry);
-    }
+    const list=document.createElement('ul');
+    list.className='movement-list';
+    for(const row of activity.rows) list.append(movementRow(row,format,'Confirmado'));
+    group.append(list);
     monthly.append(group);
-    if(rows.length){
-      const details=document.createElement('article'),summary=document.createElement('h4');
-      summary.textContent=name.textContent;details.append(summary);
-      for(const bill of rows.reverse()){
-        const entry=document.createElement('div'),caption=document.createElement('p');
-        caption.textContent=date(bill.dueDate)+' · '+format(bill.amount,bill.currency);
-        entry.append(caption);billControl(entry,bill,card);details.append(entry);
-      }
-      closed.append(details);
-    }
     bills.append(tile);
     const line=document.createElement('article'),title=document.createElement('b');title.textContent=name.textContent;line.append(title);
     for(const [field,n] of [['Limite total',card.limit],['Disponível',card.available]]){
@@ -183,9 +174,37 @@ export function renderCredit(snapshot, bank, accountRef, format) {
     }
     limits.append(line);
   }
-  for(const note of snapshot.billNotes||[]){if(bank&&!note.startsWith(bank+' · '))continue;const p=document.createElement('p');p.textContent=note;closed.append(p);}
   if(!bills.childElementCount)bills.textContent='Nenhuma fatura disponível nesta seleção.';
-  if(!closed.childElementCount)closed.textContent='Nenhuma fatura fechada disponível.';
   if(!monthly.childElementCount)monthly.textContent='Nenhum cartão nesta seleção.';
   if(!limits.childElementCount)limits.textContent='Limites não informados nesta consulta.';
+}
+
+export function renderClosedBills(snapshot,bank,format) {
+  const host=el('closed-list');
+  host.replaceChildren();
+  if (!snapshot) {
+    host.textContent='Aguardando a consulta bancária.';
+    return;
+  }
+  const groups=new Map();
+  const bills=(snapshot.bills || []).filter(bill=>!bank || bill.bank===bank)
+    .sort((a,b)=>b.dueDate.localeCompare(a.dueDate));
+  for (const bill of bills) {
+    const key=bill.cardRef || bill.bank+'/'+bill.cardName;
+    let group=groups.get(key);
+    if (!group) {
+      group=document.createElement('article');
+      const title=document.createElement('h4');
+      title.textContent=bill.bank+' · '+bill.cardName;
+      group.append(title);host.append(group);groups.set(key,group);
+    }
+    const entry=document.createElement('div'),caption=document.createElement('p');
+    caption.textContent=bill.dueDate.split('-').reverse().join('/')+' · '+format(bill.amount,bill.currency);
+    entry.append(caption);billControl(entry,bill,{bank:bill.bank,name:bill.cardName});group.append(entry);
+  }
+  for (const message of snapshot.billNotes || []) {
+    if (bank && !message.startsWith(bank+' · ')) continue;
+    const note=document.createElement('p');note.textContent=message;host.append(note);
+  }
+  if (!host.childElementCount) host.textContent='Nenhuma fatura fechada disponível nesta seleção.';
 }
