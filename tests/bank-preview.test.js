@@ -27,7 +27,7 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
     bankCalls++;
     if(url.pathname==='/auth')return Response.json({apiKey:'test-api'});
     assert.equal(options.headers['X-API-KEY'],'test-api');
-    if(url.pathname.startsWith('/items/'))return Response.json({id:url.pathname.split('/').pop(),status:'UPDATED'});
+    if(url.pathname.startsWith('/items/'))return Response.json({id:url.pathname.split('/').pop(),status:'UPDATED',connector:{isOpenFinance:!failBills}});
     if(url.pathname==='/accounts'){
       const item=url.searchParams.get('itemId');
       assert.ok([ids(1),ids(2)].includes(item));
@@ -40,7 +40,7 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
     assert.equal(url.pathname,'/v2/transactions');
     const accountId=url.searchParams.get('accountId');
     const row={accountId,id:ids(7),date:url.searchParams.get('dateTo')+'T12:00:00Z',
-      amount:25,type:accountId===ids(3)?'CREDIT':'DEBIT',currencyCode:'BRL',description:'Fictícia',status:'POSTED'};
+      creditCardMetadata:{billForecastDate:'2026-11'},amount:25,type:accountId===ids(3)?'CREDIT':'DEBIT',currencyCode:'BRL',description:'Fictícia',status:'POSTED'};
     const second=url.searchParams.has('after');
     url.searchParams.set('after','cursor');
     return Response.json({results:[row],next:second?null:url.search});
@@ -54,12 +54,12 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
   assert.doesNotMatch(await failure.text(),/private upstream|Fictícia/);assert.equal(preview,null);
   failSecond=false;
   const result=await handler(request());assert.equal(result.status,200);
-  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.equal(body.accounts[0].balance,3200);assert.equal(body.accounts[0].savings,90);assert.equal(body.accounts[1].balance,null);assert.equal(body.accounts[1].available,1500);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
+  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.equal(body.accounts[0].balance,3200);assert.equal(body.accounts[0].savings,90);assert.equal(body.accounts[1].openBalance,null);assert.equal(body.movements[1].billPeriod,'2026-11');assert.equal(body.accounts[1].balance,null);assert.equal(body.accounts[1].available,1500);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
   assert.deepEqual(body.movements.map(x=>[x.bank,x.direction,x.account]),[['Itaú','Entrada','Conta'],['Mercado Pago','Saída','Cartão']]);
   assert.doesNotMatch(JSON.stringify(body),/00000000-|test-secret|test-api/);
   const calls=bankCalls;assert.equal((await handler(request())).status,200);assert.equal(bankCalls,calls);
   preview=null;failBills=true;
   const withoutBills=await (await handler(request())).json();
-  assert.equal(withoutBills.movements.length,2);assert.equal(withoutBills.bills.length,0);
+  assert.equal(withoutBills.accounts[1].openBalance,400);assert.equal(withoutBills.movements.length,2);assert.equal(withoutBills.bills.length,0);
   assert.match(withoutBills.billNotes[0],/indisponíveis/);
 });

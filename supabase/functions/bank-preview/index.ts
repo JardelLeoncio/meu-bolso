@@ -39,7 +39,7 @@ function rpc(name: string, body: unknown, key: string, authorization: string) {
 type Movement = {
   bank: string; account: string; direction: string; date: string; description: string;
   currency: string; amount: number; pending: boolean; ref: string;
-  categoryHint: string; operation: string; cardName: string; accountRef: string;
+  billPeriod?: string; categoryHint: string; operation: string; cardName: string; accountRef: string;
 };
 type Bill = {ref:string; cardRef:string; bank:string; cardName:string; dueDate:string; amount:number; currency:string};
 async function reference(account:string, id:string) {
@@ -49,7 +49,7 @@ async function reference(account:string, id:string) {
 }
 type Summary = {
   ref:string; bank:string; type:'BANK'|'CREDIT'; name:string; currency:string;
-  balance:number|null; savings:number|null; limit:number|null; available:number|null;
+  openBalance:number|null; openDueDate:string|null; balance:number|null; savings:number|null; limit:number|null; available:number|null;
 };
 const numberOrNull = (v:unknown):number|null => typeof v==='number' && Number.isFinite(v)?v:null;
 function savingsOf(account:{currencyCode?:string; bankData?:{reservedBalances?:Array<{
@@ -133,6 +133,8 @@ async function loadPreview() {
         const accountRef=await reference(account.id,'account');
         summaries.set(accountRef,{ref:accountRef,bank,type:account.type,
           name:String(account.name||cardName||'Conta').slice(0,70),currency:String(account.currencyCode||'').slice(0,3),
+          openBalance:cardName && info.connector?.isOpenFinance === false ? numberOrNull(account.balance) : null,
+          openDueDate:cardName && account.creditData?.balanceDueDate ? String(account.creditData.balanceDueDate).slice(0,10) : null,
           balance:account.type==='BANK'?numberOrNull(account.balance):null,
           savings:account.type==='BANK'?savingsOf(account):null,
           limit:numberOrNull(account.creditData?.creditLimit),available:numberOrNull(account.creditData?.availableCreditLimit)});
@@ -149,6 +151,8 @@ async function loadPreview() {
             if (date<from || date>to) continue;
             movements.set(account.id+'/'+movement.id,{
               bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,accountRef,
+              ...(cardName && !movement.creditCardMetadata?.billId && /^\d{4}-(0[1-9]|1[0-2])$/.test(movement.creditCardMetadata?.billForecastDate ?? '')
+                ? {billPeriod:movement.creditCardMetadata.billForecastDate} : {}),
               ref:await reference(account.id,String(movement.id)),
               categoryHint:String(movement.category||movement.merchant?.category||'').slice(0,100),
               operation:String(movement.operationType||'').slice(0,50),

@@ -64,6 +64,30 @@ function billControl(tile,bill,card) {
   action.append(select,button,feedback);tile.append(action);
 }
 
+function openBill(card, closedBills, movements, today) {
+  const due = /^\d{4}-\d{2}-\d{2}$/.test(card.openDueDate) && card.openDueDate >= today ? card.openDueDate : null;
+  if (valid(card.openBalance)) return {amount:card.openBalance, due, estimated:false};
+
+  // The connector assigns a forecast month to purchases and installments in the open cycle.
+  const closedPeriods = new Set(closedBills.map(bill => bill.dueDate.slice(0,7)));
+  const currentMonth = today.slice(0,7);
+  const next = new Date(currentMonth + '-01T12:00:00Z');
+  next.setUTCMonth(next.getUTCMonth()+1);
+  const nextMonth = next.toISOString().slice(0,7);
+  const totals = new Map();
+  for (const row of movements) {
+    const period = row.billPeriod;
+    if (row.accountRef !== card.ref || !period || closedPeriods.has(period)) continue;
+    if (period < currentMonth || period > nextMonth || (due && period !== due.slice(0,7))) continue;
+    if (row.currency !== card.currency || !valid(row.amount) || row.operation === 'PAGAMENTO_FATURA') continue;
+    if (row.direction !== 'Entrada' && row.direction !== 'Saída') continue;
+    const cents = Math.round(row.amount*100) * (row.direction === 'Entrada' ? -1 : 1);
+    totals.set(period,(totals.get(period) ?? 0)+cents);
+  }
+  const period = [...totals.keys()].sort()[0];
+  return period ? {amount:totals.get(period)/100, period, due, estimated:true} : null;
+}
+
 export function renderCredit(snapshot, bank, accountRef, format) {
   const bills=el('finance-bills'),limits=el('limits-list');
   bills.replaceChildren();limits.replaceChildren();
@@ -80,17 +104,26 @@ export function renderCredit(snapshot, bank, accountRef, format) {
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(new Date());
   for(const card of cards.values()){
     const rows=availableBills.filter(b=>(b.cardRef||b.bank+'/'+b.cardName)===card.ref).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-    const bill=rows.find(b=>b.dueDate>=today)||rows.at(-1);
+    const current=openBill(card,rows,snapshot.movements || [],today);
     const tile=document.createElement('article');
     tile.className='plastic-card'+(card.bank==='Mercado Pago'?' mp':'');
     const name=document.createElement('b'),label=document.createElement('small'),value=document.createElement('strong'),due=document.createElement('small');
-    name.textContent=card.bank+' · '+card.name;label.textContent='Fatura informada';
-    value.textContent=bill?format(bill.amount,bill.currency):'—';
-    due.textContent=bill?'Vencimento em '+date(bill.dueDate):'Fatura não informada';
-    tile.append(name,label,value,due);if(bill)billControl(tile,bill,card);
-    if(rows.length>1){
-      const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Outras faturas';details.append(summary);
-      for(const other of rows.filter(b=>b!==bill).reverse()){const p=document.createElement('p');p.textContent=date(other.dueDate)+' · '+format(other.amount,other.currency);details.append(p);}
+    name.textContent=card.bank+' · '+card.name;label.textContent='Fatura atual';
+    value.textContent=current ? format(current.amount,card.currency) : '—';
+    if (!current) due.textContent='Valor em aberto ainda indisponível.';
+    else if (current.estimated) {
+      const [year, month]=current.period.split('-');
+      due.textContent=`Estimativa parcial · ${month}/${year} · lançamentos disponíveis`;
+    } else due.textContent=current.due ? 'Vencimento em '+date(current.due) : 'Saldo da fatura informado pelo banco';
+    tile.append(name,label,value,due);
+    if(rows.length){
+      const details=document.createElement('details'),summary=document.createElement('summary');
+      summary.textContent='Faturas fechadas';details.append(summary);
+      for(const bill of rows.reverse()){
+        const entry=document.createElement('div'),caption=document.createElement('p');
+        caption.textContent=date(bill.dueDate)+' · '+format(bill.amount,bill.currency);
+        entry.append(caption);billControl(entry,bill,card);details.append(entry);
+      }
       tile.append(details);
     }
     bills.append(tile);
