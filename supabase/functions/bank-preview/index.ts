@@ -39,7 +39,7 @@ function rpc(name: string, body: unknown, key: string, authorization: string) {
 type Movement = {
   bank: string; account: string; direction: string; date: string; description: string;
   currency: string; amount: number; pending: boolean; ref: string;
-  billPeriod?: string; categoryHint: string; operation: string; cardName: string; accountRef: string;
+  installment?: string; billPeriod?: string; categoryHint: string; operation: string; cardName: string; accountRef: string;
 };
 type Bill = {ref:string; cardRef:string; bank:string; cardName:string; dueDate:string; amount:number; currency:string};
 async function reference(account:string, id:string) {
@@ -84,6 +84,10 @@ async function loadPreview() {
   // On the 31st, include day one for the card dashboard. The archive RPC accepts exactly 30 days.
   const monthStart = to.slice(0,7)+'-01';
   const queryFrom = from < monthStart ? from : monthStart;
+  const cycleStart = new Date(monthStart+'T00:00:00Z');
+  cycleStart.setUTCMonth(cycleStart.getUTCMonth()-1);
+  const cycleEnd = new Date(monthStart+'T00:00:00Z');
+  cycleEnd.setUTCMonth(cycleEnd.getUTCMonth()+2,0);
   const movements = new Map<string,Movement>();
   const bills = new Map<string,Bill>();
   const summaries = new Map<string,Summary>();
@@ -142,7 +146,9 @@ async function loadPreview() {
           savings:account.type==='BANK'?savingsOf(account):null,
           limit:numberOrNull(account.creditData?.creditLimit),available:numberOrNull(account.creditData?.availableCreditLimit)});
         if(cardName) await loadBills(bank,cardName,account.id,accountRef);
-        let query = '?'+new URLSearchParams({accountId:account.id,dateFrom:account.type==='CREDIT'?queryFrom:from,dateTo:to});
+        const dateFrom=cardName ? cycleStart.toISOString().slice(0,10) : from;
+        const dateTo=cardName ? cycleEnd.toISOString().slice(0,10) : to;
+        let query = '?'+new URLSearchParams({accountId:account.id,dateFrom,dateTo});
         while (query) {
           bounded();
           const result = await get('/v2/transactions'+query);
@@ -151,9 +157,13 @@ async function loadPreview() {
             if (!movement.id || (movement.accountId!=null && movement.accountId!==account.id) || !Number.isFinite(movement.amount))
               throw new PreviewError(503,'provider');
             const date = String(movement.date).slice(0,10);
-            if (date<(cardName?queryFrom:from) || date>to) continue;
+            if (date<dateFrom || date>dateTo) continue;
+            const metadata=movement.creditCardMetadata;
+            if ((date<queryFrom || date>to) && (!metadata?.billForecastDate || metadata.billId)) continue;
             movements.set(account.id+'/'+movement.id,{
               bank, account:account.type==='CREDIT'?'Cartão':'Conta', cardName,accountRef,
+              ...(cardName && Number.isInteger(metadata?.installmentNumber) && Number.isInteger(metadata?.totalInstallments) && metadata.installmentNumber>0 && metadata.totalInstallments>=metadata.installmentNumber
+                ? {installment:`${metadata.installmentNumber}/${metadata.totalInstallments}`} : {}),
               ...(cardName && !movement.creditCardMetadata?.billId && /^\d{4}-(0[1-9]|1[0-2])$/.test(movement.creditCardMetadata?.billForecastDate ?? '')
                 ? {billPeriod:movement.creditCardMetadata.billForecastDate} : {}),
               ref:await reference(account.id,String(movement.id)),
@@ -176,7 +186,7 @@ async function loadPreview() {
     }
     if (!eligibleAccounts) throw new PreviewError(503,'connection');
   }
-  return {version:2,from,to,fetchedAt,cardFrom:queryFrom,earlierCardRows:[...movements.values()].filter(row=>row.date<from),accounts:[...summaries.values()],bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].filter(row=>row.date>=from).sort((a,b)=>b.date.localeCompare(a.date))};
+  return {version:2,from,to,fetchedAt,cardFrom:queryFrom,cycleRows:[...movements.values()].filter(row=>(row.date<queryFrom || row.date>to) && row.billPeriod),earlierCardRows:[...movements.values()].filter(row=>row.date>=queryFrom && row.date<from),accounts:[...summaries.values()],bills:[...bills.values()].sort((a,b)=>b.dueDate.localeCompare(a.dueDate)),billNotes:[...billNotes],movements:[...movements.values()].filter(row=>row.date>=from && row.date<=to).sort((a,b)=>b.date.localeCompare(a.date))};
 }
 Deno.serve(async request=>{
   if (request.method==='OPTIONS') return new Response(null,{status:204,headers});

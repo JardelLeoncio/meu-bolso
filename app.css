@@ -257,3 +257,5 @@ button.analysis-row:hover{color:var(--mint)}.analytics-head .btn{margin-top:14px
 #bank-movements li.movement-out .movement-icon{color:light-dark(#a25b65,#dda0aa);background:light-dark(#faf1f3,#3b2d3b)}
 @media(max-width:380px){#bank-movements li{grid-template-columns:32px minmax(0,1fr);gap:5px 8px}#bank-movements li>span:last-child{grid-column:2;grid-row:3;text-align:left;max-width:none}#bank-movements li .movement-icon{width:30px;height:30px}}
 #due-panel summary{display:grid;grid-template-columns:20px minmax(0,1fr) 12px;gap:8px}#due-panel h3{font-size:0;margin:0}#due-panel h3 svg{width:18px;height:18px}#due-panel summary:after{margin:0}#due-summary{font-weight:500}
+
+.bank-segments{flex-wrap:wrap}.bank-segments button{flex:1 1 auto}#monthly-list article,#closed-list article{margin-top:1em}#monthly-list p,#closed-list article>div{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}#closed-list select{max-width:100%}

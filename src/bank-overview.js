@@ -65,9 +65,9 @@ function billControl(tile,bill,card) {
   action.append(select,button,feedback);tile.append(action);
 }
 
-function openBill(card, closedBills, movements, today) {
+export function openBill(card, closedBills, movements, today) {
   const due = /^\d{4}-\d{2}-\d{2}$/.test(card.openDueDate) && card.openDueDate >= today ? card.openDueDate : null;
-  if (valid(card.openBalance)) return {amount:card.openBalance, due, estimated:false};
+
 
   // The connector assigns a forecast month to purchases and installments in the open cycle.
   const closedPeriods = new Set(closedBills.map(bill => bill.dueDate.slice(0,7)));
@@ -75,18 +75,23 @@ function openBill(card, closedBills, movements, today) {
   const next = new Date(currentMonth + '-01T12:00:00Z');
   next.setUTCMonth(next.getUTCMonth()+1);
   const nextMonth = next.toISOString().slice(0,7);
+  const itemsByPeriod = new Map();
   const totals = new Map();
   for (const row of movements) {
     const period = row.billPeriod;
     if (row.accountRef !== card.ref || !period || closedPeriods.has(period)) continue;
     if (period < currentMonth || period > nextMonth || (due && period !== due.slice(0,7))) continue;
-    if (row.currency !== card.currency || !valid(row.amount) || row.operation === 'PAGAMENTO_FATURA') continue;
+    if (row.currency !== card.currency || !valid(row.amount) || categoryFor(row) === 'bill') continue;
     if (row.direction !== 'Entrada' && row.direction !== 'Saída') continue;
     const cents = Math.round(row.amount*100) * (row.direction === 'Entrada' ? -1 : 1);
     totals.set(period,(totals.get(period) ?? 0)+cents);
+    if (!itemsByPeriod.has(period)) itemsByPeriod.set(period,[]);
+    itemsByPeriod.get(period).push(row);
   }
   const period = [...totals.keys()].sort()[0];
-  return period ? {amount:totals.get(period)/100, period, due, estimated:true} : null;
+  const items=itemsByPeriod.get(period) || [];
+  if (valid(card.openBalance)) return {amount:card.openBalance, period, due, items, estimated:false};
+  return period ? {amount:totals.get(period)/100, period, due, items, estimated:true} : null;
 }
 
 export function monthCardActivity(snapshot, card, today) {
@@ -107,8 +112,9 @@ export function monthCardActivity(snapshot, card, today) {
 
 export function renderCredit(snapshot, bank, accountRef, format) {
   const bills=el('finance-bills'),limits=el('limits-list');
-  bills.replaceChildren();limits.replaceChildren();
-  if(!snapshot){bills.textContent=limits.textContent='Consulte os bancos para ver os dados disponíveis.';return;}
+  const monthly=el('monthly-list'), closed=el('closed-list');
+  for(const host of [bills,limits,monthly,closed]) host.replaceChildren();
+  if(!snapshot){bills.textContent=limits.textContent=monthly.textContent=closed.textContent='Consulte os bancos para ver os dados disponíveis.';return;}
   const matches=b=>(!bank||b.bank===bank)&&(!accountRef||b.ref===accountRef||b.cardRef===accountRef);
   const accounts=(snapshot.accounts||[]).filter(a=>a.type==='CREDIT'&&matches(a));
   const availableBills=(snapshot.bills||[]).filter(matches);
@@ -121,48 +127,54 @@ export function renderCredit(snapshot, bank, accountRef, format) {
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(new Date());
   for(const card of cards.values()){
     const rows=availableBills.filter(b=>(b.cardRef||b.bank+'/'+b.cardName)===card.ref).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-    const current=openBill(card,rows,snapshot.movements || [],today);
+    const cycleRows=[...(snapshot.earlierCardRows || []),...(snapshot.movements || []),...(snapshot.cycleRows || [])];
+    const current=openBill(card,rows,cycleRows,today);
     const tile=document.createElement('article');
     tile.className='plastic-card'+(card.bank==='Mercado Pago'?' mp':'');
     const name=document.createElement('b'),label=document.createElement('small'),value=document.createElement('strong'),due=document.createElement('small');
     name.textContent=card.bank+' · '+card.name;
     const month=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(today+'T12:00:00Z'));
-    label.textContent='Gastos de '+month;
-    const activity=monthCardActivity(snapshot,card,today);
-    const amounts=[...activity.totals];
-    const gross=amounts.map(([currency,sums])=>format((sums.posted+sums.pending)/100,currency));
-    value.textContent=gross.join(' + ') || (activity.complete && card.currency ? format(0,card.currency) : '—');
-    due.textContent=amounts.map(([currency,sums])=>{
-      const parts=[format(sums.posted/100,currency)+' confirmados',format(sums.pending/100,currency)+' pendentes'];
-      if(sums.credits) parts.push(format(sums.credits/100,currency)+' em créditos');
-      return parts.join(' · ');
-    }).join(' / ');
+    label.textContent='Fatura em andamento';
+    value.textContent=current ? format(current.amount,card.currency) : '—';
+    due.textContent=current ? (current.estimated?'Estimativa parcial':'Total informado pelo banco') : 'Aguardando informações do ciclo';
+    if(current?.due) due.textContent+=' · Vence em '+date(current.due);
+    else if(current?.period) due.textContent+=' · '+current.period.split('-').reverse().join('/');
     tile.append(name,label,value,due);
-    if(!activity.complete){const note=document.createElement('small');note.textContent='Cobertura parcial do mês';tile.append(note);}
-    if(activity.rows.length){
+    if(current?.items.length){
       const details=document.createElement('details'),summary=document.createElement('summary');
-      summary.textContent=`Lançamentos do mês (${activity.rows.length})`;details.append(summary);
-      for(const row of activity.rows){
+      summary.textContent='Itens identificados nesta fatura';details.append(summary);
+      for(const row of current.items){
         const entry=document.createElement('p');
-        entry.textContent=[date(row.date),row.description,format(row.amount,row.currency),row.direction==='Entrada'?'Crédito':row.direction,row.pending?'Pendente':'Confirmado'].join(' · ');
+        entry.textContent=[row.description,row.installment?'Parcela '+row.installment:'',row.direction==='Entrada'?'Crédito':'',format(row.amount,row.currency)].filter(Boolean).join(' · ');
         details.append(entry);
       }
       tile.append(details);
     }
-    if(current){
-      const balance=document.createElement('small');
-      balance.textContent=(current.estimated?'Estimativa parcial da fatura':'Fatura em aberto')+' · '+format(current.amount,card.currency);
-      tile.append(balance);
+    const activity=monthCardActivity(snapshot,card,today);
+    const group=document.createElement('article'),heading=document.createElement('h4');
+    heading.textContent=name.textContent+' · '+month;group.append(heading);
+    for (const [currency,sums] of activity.totals){
+      const total=document.createElement('p');
+      total.textContent='Gastos '+format((sums.posted+sums.pending)/100,currency)+' · Pendentes '+format(sums.pending/100,currency);
+      if(sums.credits) total.textContent+=' · Créditos '+format(sums.credits/100,currency);
+      group.append(total);
     }
+    if(!activity.complete || !activity.rows.length){
+      const note=document.createElement('small');note.textContent=activity.complete?'Nenhum lançamento no mês.':'Cobertura parcial do mês';group.append(note);
+    }
+    for(const row of activity.rows){
+      const entry=document.createElement('p');entry.textContent=[date(row.date),row.description,row.installment?'Parcela '+row.installment:'',format(row.amount,row.currency),row.direction,row.pending?'Pendente':'Confirmado'].filter(Boolean).join(' · ');group.append(entry);
+    }
+    monthly.append(group);
     if(rows.length){
-      const details=document.createElement('details'),summary=document.createElement('summary');
-      summary.textContent='Faturas fechadas';details.append(summary);
+      const details=document.createElement('article'),summary=document.createElement('h4');
+      summary.textContent=name.textContent;details.append(summary);
       for(const bill of rows.reverse()){
         const entry=document.createElement('div'),caption=document.createElement('p');
         caption.textContent=date(bill.dueDate)+' · '+format(bill.amount,bill.currency);
         entry.append(caption);billControl(entry,bill,card);details.append(entry);
       }
-      tile.append(details);
+      closed.append(details);
     }
     bills.append(tile);
     const line=document.createElement('article'),title=document.createElement('b');title.textContent=name.textContent;line.append(title);
@@ -171,7 +183,9 @@ export function renderCredit(snapshot, bank, accountRef, format) {
     }
     limits.append(line);
   }
-  for(const note of snapshot.billNotes||[]){if(bank&&!note.startsWith(bank+' · '))continue;const p=document.createElement('p');p.textContent=note;bills.append(p);}
+  for(const note of snapshot.billNotes||[]){if(bank&&!note.startsWith(bank+' · '))continue;const p=document.createElement('p');p.textContent=note;closed.append(p);}
   if(!bills.childElementCount)bills.textContent='Nenhuma fatura disponível nesta seleção.';
+  if(!closed.childElementCount)closed.textContent='Nenhuma fatura fechada disponível.';
+  if(!monthly.childElementCount)monthly.textContent='Nenhum cartão nesta seleção.';
   if(!limits.childElementCount)limits.textContent='Limites não informados nesta consulta.';
 }

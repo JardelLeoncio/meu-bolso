@@ -39,11 +39,12 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
     if(url.pathname==='/bills')return Response.json({results:[{id:'fake',totalAmount:450.25,dueDate:'2026-12-10',totalAmountCurrencyCode:'BRL'}],totalPages:1});
     assert.equal(url.pathname,'/v2/transactions');
     const accountId=url.searchParams.get('accountId');
-    const row={accountId,id:ids(7),date:url.searchParams.get('dateTo')+'T12:00:00Z',
+    const row={accountId,id:ids(7),date:new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo'}).format(new Date())+'T12:00:00Z',
       creditCardMetadata:{billForecastDate:'2026-11'},amount:25,type:accountId===ids(3)?'CREDIT':'DEBIT',currencyCode:'BRL',description:'Fictícia',status:'POSTED'};
     const second=url.searchParams.has('after');
     url.searchParams.set('after','cursor');
-    return Response.json({results:[row],next:second?null:url.search});
+    const upcoming={...row,id:ids(8),date:url.searchParams.get('dateTo'),creditCardMetadata:{billForecastDate:url.searchParams.get('dateTo').slice(0,7),installmentNumber:3,totalInstallments:10}};
+    return Response.json({results:accountId===ids(4)?[row,upcoming]:[row],next:second?null:url.search});
   }
   vm.runInNewContext(code,{Deno:{env:{get:k=>env[k]},serve:fn=>handler=fn},fetch:fakeFetch,Response,URL,URLSearchParams,AbortSignal,Intl,Date,crypto,TextEncoder});
   const request=()=>new Request('https://example.invalid',{method:'POST',headers:{authorization:'Bearer fake-user'},body:JSON.stringify({itemId:ids(8)})});
@@ -54,7 +55,7 @@ test('Prévia Pluggy restringe o titular, percorre páginas e falha sem salvar r
   assert.doesNotMatch(await failure.text(),/private upstream|Fictícia/);assert.equal(preview,null);
   failSecond=false;
   const result=await handler(request());assert.equal(result.status,200);
-  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.equal(body.accounts[0].balance,3200);assert.equal(body.accounts[0].savings,90);assert.equal(body.accounts[1].openBalance,null);assert.equal(body.movements[1].billPeriod,'2026-11');assert.equal(body.accounts[1].balance,null);assert.equal(body.accounts[1].available,1500);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
+  const body=await result.json();assert.equal(body.bills[0].amount,450.25);assert.equal(body.version,2);assert.equal(body.accounts[0].balance,3200);assert.equal(body.accounts[0].savings,90);assert.equal(body.cycleRows.length,1);assert.equal(body.cycleRows[0].installment,'3/10');assert.equal(body.accounts[1].openBalance,null);assert.equal(body.movements[1].billPeriod,'2026-11');assert.equal(body.accounts[1].balance,null);assert.equal(body.accounts[1].available,1500);assert.match(body.movements[0].ref,/^[a-f0-9]{64}$/);assert.equal(body.movements.length,2);
   assert.deepEqual(body.movements.map(x=>[x.bank,x.direction,x.account]),[['Itaú','Entrada','Conta'],['Mercado Pago','Saída','Cartão']]);
   assert.doesNotMatch(JSON.stringify(body),/00000000-|test-secret|test-api/);
   const calls=bankCalls;assert.equal((await handler(request())).status,200);assert.equal(bankCalls,calls);

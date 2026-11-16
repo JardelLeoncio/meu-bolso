@@ -60,7 +60,7 @@ export function setupBankPreview(client,currentSession) {
     renderCredit(snapshot,institution.value,card?.ref||'',amount);
   }
   function pane(name){
-    el('statement-pane').hidden=name!=='statement';el('limits-pane').hidden=name!=='limits';
+    for(const view of ['statement','monthly','closed','limits']) el(view+'-pane').hidden=view!==name;
     document.querySelectorAll('[data-bank-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.bankView===name)));
   }
   document.querySelectorAll('[data-bank-view]').forEach(b=>b.addEventListener('click',()=>pane(b.dataset.bankView)));
